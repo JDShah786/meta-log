@@ -1,0 +1,627 @@
+<title>Meta Log Sounds</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,600;0,800;1,800;1,900&display=swap" rel="stylesheet">
+<style>
+  /* Layout: one phone-width column. A mini app panel to feel sounds in context, then the full board. */
+  :root {
+    color-scheme: dark;
+    --bg: #050807;
+    --depth: #0d1f12;
+    --g: #39ff7a;
+    --lime: #c6ff3d;
+    --ink: #ffffff;
+    --muted: #9bb8a2;
+    --black: #000000;
+    --line: rgb(255 255 255 / 0.14);
+    --display: 'Montserrat', 'Arial Black', system-ui, sans-serif;
+    --body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: radial-gradient(120% 50% at 100% 0%, var(--depth), var(--bg) 70%) fixed, var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 20px 48px;
+  }
+  main { max-width: 480px; margin-inline: auto; display: grid; gap: 28px; }
+  h1, h2 { font-family: var(--display); font-style: italic; font-weight: 900; text-transform: uppercase; margin: 0; text-wrap: balance; }
+  h1 { font-size: 40px; line-height: 0.95; letter-spacing: -0.02em; text-shadow: 4px 4px 0 var(--black), 6px 6px 0 var(--g); rotate: -3deg; }
+  h2 { font-size: 15px; letter-spacing: 0.12em; color: var(--g); display: inline-block; border: 2px solid var(--g); border-radius: 999px; padding: 3px 12px; rotate: -3deg; justify-self: start; }
+  p { margin: 0; color: var(--muted); line-height: 1.5; font-size: 14px; }
+  .lede { display: grid; gap: 10px; }
+  .note { font-size: 13px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 12px; }
+  .note b { color: var(--lime); }
+  section { display: grid; gap: 14px; }
+  button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  button:focus-visible { outline: 3px solid var(--lime); outline-offset: 3px; }
+
+  /* Sound on/off, like the Settings switch */
+  .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--black); border: 2px solid var(--line); }
+  .switch span { font: 800 italic 15px var(--display); text-transform: uppercase; letter-spacing: 0.05em; }
+  .toggle { width: 58px; height: 32px; border-radius: 999px; background: #26332a; position: relative; transition: background 0.15s; flex: none; }
+  .toggle::after { content: ''; position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+  .toggle[aria-checked='true'] { background: var(--g); }
+  .toggle[aria-checked='true']::after { transform: translateX(26px); }
+
+  /* Mini app panel */
+  .panel { display: grid; gap: 14px; padding: 16px; border-radius: 22px; background: var(--black); border: 2px solid var(--g); box-shadow: 6px 6px 0 color-mix(in srgb, var(--g) 35%, transparent); }
+  .menu { display: grid; justify-items: end; gap: 2px; rotate: -6deg; padding-block: 6px; }
+  .menu button { font: 900 italic 30px/1.1 var(--display); text-transform: uppercase; letter-spacing: -0.02em; padding: 0 16px; border-radius: 999px; text-shadow: 3px 3px 0 #222; }
+  .menu button.sel { background: linear-gradient(100deg, var(--g), var(--lime)); color: var(--black); text-shadow: none; box-shadow: 5px 5px 0 #000, 7px 7px 0 #fff; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .strip { display: flex; justify-content: space-between; gap: 4px; background: #0b0f0c; border-block: 2px solid var(--g); padding: 6px 8px; rotate: -2deg; }
+  .strip button { font: 900 italic 12px var(--display); text-transform: uppercase; color: var(--muted); padding: 5px 8px; border-radius: 999px; }
+  .strip button.lit { background: var(--g); color: var(--black); }
+  .bub { width: 46px; height: 46px; border-radius: 50%; font: 900 italic 16px var(--display); color: var(--black); background: radial-gradient(circle at 32% 28%, #fff 0 10%, var(--lime) 32%, var(--g) 75%); }
+  .bub.on { outline: 3px solid #fff; outline-offset: 2px; }
+  .pill { font: 900 italic 14px var(--display); text-transform: uppercase; letter-spacing: 0.04em; padding: 10px 16px; border-radius: 999px; border: 2px solid var(--g); color: var(--g); }
+  .pill.solid { background: linear-gradient(100deg, var(--g), var(--lime)); color: var(--black); border-color: transparent; box-shadow: 4px 4px 0 #000, 6px 6px 0 #fff; }
+  .log { flex: 1; font-size: 18px; padding-block: 14px; }
+  .xbtn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #777; font: 700 18px var(--body); }
+  .hint { font-size: 12px; }
+
+  /* Full board */
+  .board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .snd { display: grid; gap: 4px; text-align: left; padding: 12px; border-radius: 14px; background: #0b100d; border: 2px solid var(--line); min-width: 0; }
+  .snd b { font: 900 italic 14px var(--display); text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink); }
+  .snd small { color: var(--muted); font-size: 12px; line-height: 1.35; }
+  .snd.big { grid-column: 1 / -1; border-color: var(--g); }
+  .snd.big b { color: var(--lime); font-size: 16px; }
+  .snd:active, .menu button:active, .pill:active, .bub:active, .strip button:active { transform: scale(0.95); }
+  .why { display: grid; gap: 8px; }
+  .why li { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .why ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+  @media (prefers-reduced-motion: reduce) { .snd:active, .menu button:active, .pill:active, .bub:active { transform: none; } .toggle, .toggle::after { transition: none; } }
+</style>
+
+<main>
+  <div class="lede">
+    <h1>Meta Log<br>Sounds</h1>
+    <p>One universal set of original sounds, made in code. Tap anything to hear it.</p>
+    <p class="note"><b>On iPhone:</b> flip the silent switch off and turn the volume up. The app will stay quiet when the switch is on, and it never pauses your music.</p>
+  </div>
+
+  <div class="switch">
+    <span>Sound</span>
+    <button class="toggle" id="sound-toggle" role="switch" aria-checked="true" aria-label="Sound"></button>
+  </div>
+
+  <section aria-labelledby="try-h">
+    <h2 id="try-h">Try it in the app</h2>
+    <div class="panel">
+      <div class="menu" role="group" aria-label="Menu words">
+        <button class="sel" data-menu>Today</button>
+        <button data-menu>Library</button>
+        <button data-menu>Stats</button>
+        <button data-menu>My habits</button>
+      </div>
+      <p class="hint">Menu word: select, then the wipe.</p>
+      <div class="strip" role="group" aria-label="Sections">
+        <button class="lit" data-strip>Today</button>
+        <button data-strip>Library</button>
+        <button data-strip>Stats</button>
+        <button data-strip>My habits</button>
+      </div>
+      <p class="hint">Section strip: a swipe between sections.</p>
+      <div class="row">
+        <button class="pill" id="open-sheet">Open log sheet</button>
+        <button class="xbtn" id="close-sheet" aria-label="Close sheet">✕</button>
+      </div>
+      <div class="row" role="group" aria-label="Quick minutes">
+        <button class="bub" data-bub>5</button>
+        <button class="bub" data-bub>10</button>
+        <button class="bub" data-bub>15</button>
+        <button class="bub on" data-bub>30</button>
+        <button class="bub" data-bub>60</button>
+      </div>
+      <div class="row">
+        <button class="pill solid log" id="log-btn">Log</button>
+      </div>
+      <p class="hint">LOG plays the confirm, then one tick per bead (5 points here), then a rank-up.</p>
+      <div class="row">
+        <button class="pill" id="remove-btn">Remove</button>
+        <button class="pill" id="undo-btn">Undo</button>
+        <button class="pill" id="error-btn">Bad minutes</button>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="all-h">
+    <h2 id="all-h">Every sound</h2>
+    <div class="board">
+      <button class="snd" data-play="tick"><b>Tap</b><small>Any small button, tag or chip.</small></button>
+      <button class="snd" data-play="select"><b>Select</b><small>A menu word, a section name.</small></button>
+      <button class="snd" data-play="back"><b>Back</b><small>✕, Cancel, closing a moment.</small></button>
+      <button class="snd" data-play="pop"><b>Bubble</b><small>Quick minute bubbles 5–60.</small></button>
+      <button class="snd" data-play="wipe"><b>Wipe</b><small>Menu to section.</small></button>
+      <button class="snd" data-play="swipe"><b>Swipe</b><small>Moving between sections.</small></button>
+      <button class="snd" data-play="sheetOpen"><b>Sheet up</b><small>Log, settings, custom habit.</small></button>
+      <button class="snd" data-play="sheetClose"><b>Sheet down</b><small>Closing a sheet.</small></button>
+      <button class="snd" data-play="log"><b>Log</b><small>The LOG button.</small></button>
+      <button class="snd" data-play="beads5"><b>Beads ×5</b><small>One tick per point, rising.</small></button>
+      <button class="snd" data-play="beads12"><b>Beads ×12</b><small>Bigger log, faster stream.</small></button>
+      <button class="snd" data-play="beads40"><b>Beads ×40</b><small>The cap: a fast rush.</small></button>
+      <button class="snd" data-play="remove"><b>Remove</b><small>A habit slides off your list.</small></button>
+      <button class="snd" data-play="undo"><b>Undo</b><small>It comes back.</small></button>
+      <button class="snd" data-play="toggle"><b>Switch</b><small>Daily / Anytime, Sound on/off.</small></button>
+      <button class="snd" data-play="error"><b>Error</b><small>A name or minutes the app refuses.</small></button>
+      <button class="snd big" data-play="rankup"><b>Rank up</b><small>A stat reaches its next rank.</small></button>
+      <button class="snd big" data-play="graduate"><b>Graduated</b><small>All four stats at max: a long run, then the big fanfare.</small></button>
+    </div>
+  </section>
+
+  <section class="why" aria-labelledby="why-h">
+    <h2 id="why-h">How they're built</h2>
+    <ul>
+      <li>If it moves, it makes a sound: taps click, screens ratchet, sheets slide like paper.</li>
+      <li>Clicks, not thuds: tiny 5–15 ms snaps, each panned a touch left or right, so they sit close in your ears.</li>
+      <li>Two-part clicks: select is "ka-chick", back is "chick-ka", LOG is "ka-chick-chick" into a soft chime.</li>
+      <li>Pitch means something: select and confirm rise, back and remove fall, errors are two dull taps.</li>
+      <li>Beads are tiny glass ticks climbing a musical scale, so a big log runs up to the rank.</li>
+      <li>Everything is generated in code. No recordings, nothing borrowed from a game.</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+  // Sound engine: Web Audio only, no files. Everything is made of tiny clicks (very short filtered
+  // noise bursts with a faint glassy ping) and soft sine chimes. Quiet, crisp, close to the ear.
+  let ctx = null
+  let out = null
+  let noiseBuf = null
+  let hall = null
+  let enabled = true
+
+  function audio() {
+    if (!ctx) {
+      // Respect the iPhone silent switch and mix with the user's music (Safari 16.4+).
+      try { if (navigator.audioSession) navigator.audioSession.type = 'ambient' } catch (e) {}
+      ctx = new (window.AudioContext || window.webkitAudioContext)()
+      noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate)
+      const d = noiseBuf.getChannelData(0)
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+      // A gentle limiter only, so stacked clicks never spike. No saturation, no boost.
+      const lim = ctx.createDynamicsCompressor()
+      lim.threshold.value = -6
+      lim.knee.value = 4
+      lim.ratio.value = 3
+      lim.attack.value = 0.001
+      lim.release.value = 0.08
+      out = ctx.createGain()
+      out.gain.value = 0.78
+      out.connect(lim).connect(ctx.destination)
+      // A hall echo, used only by the achievement moments (rank-up, graduation).
+      const len = Math.floor(ctx.sampleRate * 1.4)
+      const ir = ctx.createBuffer(2, len, ctx.sampleRate)
+      for (let ch = 0; ch < 2; ch++) {
+        const d2 = ir.getChannelData(ch)
+        for (let i = 0; i < len; i++) d2[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6)
+      }
+      const verb = ctx.createConvolver()
+      verb.buffer = ir
+      hall = ctx.createGain()
+      hall.gain.value = 0.3
+      hall.connect(verb).connect(lim)
+    }
+    if (ctx.state !== 'running') ctx.resume()
+    return ctx
+  }
+
+  // Each sound sits a touch left or right, so a run of clicks feels close and alive.
+  function panned(c, pan) {
+    if (!c.createStereoPanner) return out
+    const p = c.createStereoPanner()
+    p.pan.value = pan
+    p.connect(out)
+    return p
+  }
+
+  function env(g, t, peak, attack, dur) {
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.linearRampToValueAtTime(peak, t + attack)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  }
+
+  function tone({ type = 'sine', f0, f1 = f0, at = 0, dur = 0.1, gain = 0.05, attack = 0.002, pan = 0 }) {
+    const c = audio()
+    const t = c.currentTime + at
+    const o = c.createOscillator()
+    const g = c.createGain()
+    o.type = type
+    o.frequency.setValueAtTime(f0, t)
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur)
+    env(g, t, gain, attack, dur)
+    o.connect(g).connect(panned(c, pan))
+    o.start(t)
+    o.stop(t + dur + 0.03)
+  }
+
+  // A click: a few milliseconds of noise through a resonant bandpass. `f` sets its pitch:
+  // ~1.5 kHz is a soft "ka", ~6 kHz a sharp "chick".
+  function click(at = 0, f = 5500, level = 1, dur = 0.012, q = 3) {
+    const c = audio()
+    const t = c.currentTime + at
+    const pan = (Math.random() * 2 - 1) * 0.18
+    const s = c.createBufferSource()
+    s.buffer = noiseBuf
+    const bp = c.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.value = f
+    bp.Q.value = q
+    const g = c.createGain()
+    env(g, t, 0.32 * level, 0.0005, dur)
+    s.connect(bp).connect(g).connect(panned(c, pan))
+    s.start(t, Math.random() * 0.8)
+    s.stop(t + dur + 0.02)
+    // The faint glassy ping that makes a click feel "finished".
+    tone({ at, f0: f * 0.82, dur: 0.018, gain: 0.025 * level, attack: 0.0005, pan })
+  }
+
+  // A run of clicks: n clicks over `span` seconds, pitch from f0 to f1, speeding up (accel < 1)
+  // or slowing down (accel > 1). Used for screen changes and sheets.
+  function ratchet(at, n, span, f0, f1, level = 0.7, accel = 0.8) {
+    let t = 0
+    const steps = []
+    for (let i = 0; i < n; i++) steps.push(Math.pow(accel, i))
+    const total = steps.reduce((a, b) => a + b, 0)
+    for (let i = 0; i < n; i++) {
+      const f = f0 * Math.pow(f1 / f0, n === 1 ? 0 : i / (n - 1))
+      click(at + t, f, level * (0.75 + 0.25 * (i / Math.max(1, n - 1))), 0.009)
+      t += (steps[i] / total) * span
+    }
+    return at + span
+  }
+
+  // Soft glass chime: a pure sine with a fast attack and a short ring, plus a quiet octave.
+  function chime(at, f, gain = 0.06, dur = 0.35) {
+    const pan = (Math.random() * 2 - 1) * 0.25
+    tone({ at, f0: f, dur, gain, attack: 0.003, pan })
+    tone({ at, f0: f * 2, dur: dur * 0.5, gain: gain * 0.3, attack: 0.002, pan })
+  }
+
+  // Paper: noise through a sweeping bandpass, with a fast random flutter ("crinkle") on its level.
+  // `up` slides bright (a sheet coming up), otherwise it slides down (a sheet going away).
+  function paper(at, dur, up, level = 1) {
+    const c = audio()
+    const t = c.currentTime + at
+    const s = c.createBufferSource()
+    s.buffer = noiseBuf
+    const hp = c.createBiquadFilter()
+    hp.type = 'highpass'
+    hp.frequency.value = 1200
+    const bp = c.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.Q.value = 0.9
+    bp.frequency.setValueAtTime(up ? 2200 : 5200, t)
+    bp.frequency.exponentialRampToValueAtTime(up ? 5600 : 2000, t + dur)
+    const crinkle = c.createGain()
+    crinkle.gain.setValueAtTime(0.4, t)
+    for (let x = 0; x < dur; x += 0.007) crinkle.gain.setValueAtTime(0.35 + Math.random() * 0.65, t + x)
+    const g = c.createGain()
+    const peak = 0.28 * level
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.linearRampToValueAtTime(peak, t + dur * (up ? 0.6 : 0.25))
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+    s.connect(hp).connect(bp).connect(crinkle).connect(g).connect(panned(c, up ? 0.08 : -0.08))
+    s.start(t, Math.random() * 0.5)
+    s.stop(t + dur + 0.02)
+  }
+
+  // A bright, short note: triangle body plus a filtered square for edge. The fanfare voice.
+  function bright(at, f, dur = 0.16, gain = 0.07) {
+    const c = audio()
+    const t = c.currentTime + at
+    const pan = (Math.random() * 2 - 1) * 0.15
+    tone({ at, type: 'triangle', f0: f, dur, gain, attack: 0.002, pan })
+    const o = c.createOscillator()
+    o.type = 'square'
+    o.frequency.value = f
+    const lp = c.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.setValueAtTime(6000, t)
+    lp.frequency.exponentialRampToValueAtTime(2200, t + dur)
+    const g = c.createGain()
+    env(g, t, gain * 0.45, 0.002, dur)
+    o.connect(lp).connect(g).connect(panned(c, pan))
+    o.start(t)
+    o.stop(t + dur + 0.03)
+  }
+
+  // A clap: three quick noise slaps and a short tail.
+  function clap(at, level = 1) {
+    for (const d of [0, 0.011, 0.022]) click(at + d, 1300, 0.9 * level, 0.02, 1)
+    click(at + 0.03, 1500, 0.5 * level, 0.09, 0.8)
+  }
+
+  // "Ka-CHING": a hard click pair landing on a bright chord.
+  function ching(at, semis, gain = 0.075, dur = 0.55) {
+    click(at, 1700, 0.9, 0.01, 2)
+    click(at + 0.025, 7200, 1.2)
+    for (const s of semis) bright(at + 0.025, note(s), dur, gain)
+    chime(at + 0.025, note(semis[semis.length - 1] + 12), 0.05, dur)
+  }
+
+  // ---- Achievement kit: only rank-up and graduation use these. ----
+
+  // Sends a node into the hall echo.
+  function toHall(c, node, amount) {
+    const s = c.createGain()
+    s.gain.value = amount
+    node.connect(s).connect(hall)
+  }
+
+  // A noise burst with its own filter sweep and optional hall echo (crack, crash, whoosh).
+  function burst({ at = 0, dur = 0.1, gain = 0.3, kind = 'bandpass', f0 = 2000, f1 = f0, q = 0.9, attack = 0.001, wet = 0, pan = 0 }) {
+    const c = audio()
+    const t = c.currentTime + at
+    const s = c.createBufferSource()
+    s.buffer = noiseBuf
+    const f = c.createBiquadFilter()
+    f.type = kind
+    f.Q.value = q
+    f.frequency.setValueAtTime(f0, t)
+    if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t + dur)
+    const g = c.createGain()
+    env(g, t, gain, attack, dur)
+    s.connect(f).connect(g).connect(panned(c, pan))
+    if (wet) toHall(c, g, wet)
+    s.start(t, Math.random() * 0.4)
+    s.stop(t + dur + 0.02)
+  }
+
+  // The hit: a short punchy body (mid-low, not a sub thunk), a snare-like crack and a crash.
+  function hit(at, level = 1, crashDur = 1.1) {
+    tone({ at, f0: 210, f1: 75, dur: 0.14, gain: 0.5 * level, attack: 0.001 })
+    burst({ at, dur: 0.13, gain: 0.55 * level, f0: 1900, q: 0.8, wet: 0.35 })
+    burst({ at, dur: 0.03, gain: 0.4 * level, kind: 'highpass', f0: 3000 })
+    burst({ at, dur: crashDur, gain: 0.22 * level, kind: 'highpass', f0: 5200, f1: 4000, attack: 0.002, wet: 0.5, pan: 0.1 })
+  }
+
+  // Brass "blat": detuned saws + a square per note, through a lowpass that snaps open on the attack
+  // (or swells for a held victory chord).
+  function brass(at, semis, dur, gain, swell = false) {
+    const c = audio()
+    const t = c.currentTime + at
+    for (const s of semis) {
+      const f = note(s)
+      for (const [type, dt, gmul] of [['sawtooth', -8, 1], ['sawtooth', 8, 1], ['square', 0, 0.6]]) {
+        const o = c.createOscillator()
+        o.type = type
+        o.frequency.value = f
+        o.detune.value = dt
+        const lp = c.createBiquadFilter()
+        lp.type = 'lowpass'
+        lp.Q.value = 1.4
+        if (swell) {
+          lp.frequency.setValueAtTime(1600, t)
+          lp.frequency.exponentialRampToValueAtTime(7500, t + dur * 0.35)
+          lp.frequency.exponentialRampToValueAtTime(2400, t + dur)
+        } else {
+          lp.frequency.setValueAtTime(1400, t)
+          lp.frequency.exponentialRampToValueAtTime(8500, t + 0.02)
+          lp.frequency.exponentialRampToValueAtTime(1800, t + dur)
+        }
+        const g = c.createGain()
+        g.gain.setValueAtTime(0.0001, t)
+        g.gain.linearRampToValueAtTime(gain * gmul, t + 0.004)
+        g.gain.setValueAtTime(gain * gmul * 0.85, t + dur * 0.6)
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+        const pan = (s % 2 ? 1 : -1) * 0.2
+        o.connect(lp).connect(g).connect(panned(c, pan))
+        toHall(c, g, 0.35)
+        o.start(t)
+        o.stop(t + dur + 0.03)
+      }
+    }
+  }
+
+  // Mallet: a bouncy, bright struck note (the "da-da-da" of a lesson-complete jingle).
+  function mallet(at, f, gain = 0.11, dur = 0.2) {
+    const pan = (Math.random() * 2 - 1) * 0.2
+    tone({ at, type: 'triangle', f0: f, dur, gain, attack: 0.0015, pan })
+    tone({ at, f0: f * 2, dur: dur * 0.45, gain: gain * 0.45, attack: 0.001, pan })
+    tone({ at, f0: f * 4, dur: 0.03, gain: gain * 0.3, attack: 0.0008, pan })
+    click(at, 6000, 0.35, 0.006)
+  }
+
+  const note = (semis) => 1046.5 * Math.pow(2, semis / 12) // from C6
+  // Pentatonic steps keep any bead run musical.
+  const SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28, 31]
+
+  const S = {
+    // Tap: one crisp "chick".
+    tick(at = 0, level = 1) {
+      click(at, 5800, level)
+    },
+    // Select: "ka-chick".
+    select(at = 0) {
+      click(at, 1700, 0.6, 0.01, 2)
+      click(at + 0.032, 6200, 1)
+      chime(at + 0.032, note(19), 0.025, 0.12)
+    },
+    // Back: "chick-ka".
+    back(at = 0) {
+      click(at, 5600, 0.85)
+      click(at + 0.03, 1600, 0.55, 0.01, 2)
+    },
+    // Bubble: a round, wet "tok".
+    pop(at = 0) {
+      click(at, 2600, 0.8, 0.014, 5)
+      tone({ at, f0: 1900, f1: 950, dur: 0.03, gain: 0.05, attack: 0.0008 })
+    },
+    // Wipe: a fast rising ratchet, "chk-chk-chk-chick".
+    wipe(at = 0) {
+      const end = ratchet(at, 5, 0.1, 2400, 6800, 0.65, 0.75)
+      click(end, 7000, 0.9)
+    },
+    // Swipe: a short falling ratchet.
+    swipe(at = 0) {
+      ratchet(at, 3, 0.06, 6000, 3000, 0.6, 1.1)
+    },
+    // Sheet up: a sheet of paper sliding up, then a soft paper flap as it settles.
+    sheetOpen(at = 0) {
+      paper(at, 0.17, true)
+      click(at + 0.17, 2600, 0.55, 0.02, 1.2)
+    },
+    // Sheet down: the paper sliding away, ending on a softer flap.
+    sheetClose(at = 0) {
+      paper(at, 0.15, false)
+      click(at + 0.14, 2000, 0.45, 0.02, 1.2)
+    },
+    // LOG: "ka-chick-chick", then a soft two-note chime.
+    log(at = 0) {
+      click(at, 1700, 0.7, 0.01, 2)
+      click(at + 0.03, 6200, 1)
+      click(at + 0.065, 7000, 0.85)
+      chime(at + 0.07, note(7), 0.06, 0.3)
+      chime(at + 0.13, note(12), 0.06, 0.4)
+    },
+    // One bead landing: a tiny tick and a small glass note on step i of the scale.
+    bead(i, at = 0) {
+      const f = note(SCALE[Math.min(i, SCALE.length - 1)] - 12)
+      click(at, 6500, 0.45, 0.007)
+      chime(at, f, 0.035, 0.12)
+    },
+    // Same timing rule as the points chart: gap = 110 ms / log2(beads).
+    beads(n, at = 0) {
+      const gap = 0.11 / Math.log2(Math.max(2, n))
+      for (let k = 0; k < n; k++) S.bead(Math.floor((k / n) * SCALE.length), at + k * gap)
+      return n * gap
+    },
+    // Remove: "chick-chk" falling, with a breath of air.
+    remove(at = 0) {
+      ratchet(at, 3, 0.07, 5200, 2200, 0.7, 1.2)
+    },
+    // Undo: the same, rising, then a latch.
+    undo(at = 0) {
+      const end = ratchet(at, 3, 0.06, 2200, 5200, 0.7, 0.8)
+      click(end, 6400, 0.9)
+    },
+    // Switch: a latch, "click-clack".
+    toggle(on = true, at = 0) {
+      click(at, on ? 4200 : 5600, 0.8)
+      click(at + 0.022, on ? 6200 : 3600, 0.7)
+    },
+    // Error: two dull taps, "tuk-tuk".
+    error(at = 0) {
+      click(at, 700, 0.9, 0.018, 4)
+      click(at + 0.09, 650, 0.9, 0.018, 4)
+    },
+    // Rank up: a quick run up, a "ka-CHING", then a rising "da-da-DAAA" fanfare with a clap
+    // and sparkles. Congratulations, punchy but still made of clean clicks and bright notes.
+    rankup(at = 0) {
+      // Wind-up: a click run and a whoosh, then a beat of silence.
+      const end = ratchet(at, 8, 0.22, 2000, 7500, 0.55, 0.8)
+      burst({ at, dur: 0.22, gain: 0.22, f0: 900, f1: 8000, q: 1.1, attack: 0.15 })
+      // HIT 1: brass blat on C.
+      const h1 = end + 0.04
+      hit(h1, 1)
+      brass(h1, [-24, -17, -12, -8], 0.32, 0.045)
+      chime(h1, note(12), 0.07, 0.4)
+      // "da-da-da": a bouncy run up.
+      ;[4, 7, 12].forEach((s, i) => mallet(h1 + 0.2 + i * 0.085, note(s), 0.12, 0.16))
+      // HIT 2 "DAAA": the held, swelling victory chord with a clap and sparkles.
+      const h2 = h1 + 0.2 + 3 * 0.085 + 0.02
+      hit(h2, 0.85, 1.3)
+      clap(h2, 1)
+      brass(h2, [-12, -8, -5, 0, 4], 1.0, 0.04, true)
+      mallet(h2, note(16), 0.12, 0.6)
+      chime(h2, note(24), 0.06, 0.9)
+      for (let i = 0; i < 10; i++) click(h2 + 0.1 + i * 0.055, 6500 + Math.random() * 2800, 0.4, 0.006)
+    },
+    // Graduated: a longer run, "ka-CHING", a bigger fanfare in two steps with claps, a held
+    // victory chord and a long sparkle cascade.
+    graduate(at = 0) {
+      // Wind-up: a longer run and whoosh, then a beat of silence.
+      const end = ratchet(at, 12, 0.34, 1600, 8000, 0.55, 0.84)
+      burst({ at, dur: 0.34, gain: 0.25, f0: 700, f1: 9000, q: 1.1, attack: 0.25 })
+      // HIT 1.
+      const h1 = end + 0.05
+      hit(h1, 1.1)
+      brass(h1, [-24, -17, -12, -8], 0.3, 0.05)
+      // Fanfare, part one: "ta-ta-ta-TAA".
+      ;[-5, 0, 4].forEach((s, i) => mallet(h1 + 0.18 + i * 0.085, note(s), 0.12, 0.15))
+      const h2 = h1 + 0.18 + 3 * 0.085
+      hit(h2, 0.8, 0.6)
+      brass(h2, [-17, -10, -5, 2], 0.3, 0.045)
+      mallet(h2, note(7), 0.12, 0.25)
+      // Part two: a quick run to the top.
+      ;[7, 12, 16].forEach((s, i) => mallet(h2 + 0.2 + i * 0.075, note(s), 0.12, 0.13))
+      // THE FINISH: the biggest hit, claps and a long swelling victory chord.
+      const top = h2 + 0.2 + 3 * 0.075 + 0.03
+      hit(top, 1.15, 1.8)
+      clap(top, 1.1)
+      clap(top + 0.16, 0.8)
+      brass(top, [-24, -12, -8, -5, 0, 4, 7], 1.6, 0.035, true)
+      mallet(top, note(19), 0.13, 0.9)
+      chime(top, note(24), 0.07, 1.4)
+      for (let i = 0; i < 18; i++) click(top + 0.12 + i * 0.05, 6000 + Math.random() * 3200, 0.4, 0.006)
+    },
+  }
+
+  function play(fn) {
+    if (!enabled) return
+    try { fn() } catch (e) {}
+  }
+
+  const BOARD = {
+    tick: () => S.tick(),
+    select: () => S.select(),
+    back: () => S.back(),
+    pop: () => S.pop(),
+    wipe: () => S.wipe(),
+    swipe: () => S.swipe(),
+    sheetOpen: () => S.sheetOpen(),
+    sheetClose: () => S.sheetClose(),
+    log: () => S.log(),
+    beads5: () => S.beads(5),
+    beads12: () => S.beads(12),
+    beads40: () => S.beads(40),
+    remove: () => S.remove(),
+    undo: () => S.undo(),
+    toggle: () => S.toggle(true),
+    error: () => S.error(),
+    rankup: () => S.rankup(),
+    graduate: () => S.graduate(),
+  }
+
+  // pointerdown, not click: on a phone the sound lands with the finger, not after it lifts.
+  const onPress = (el, fn) => {
+    el.addEventListener('pointerdown', (e) => { if (e.button === 0) play(fn) })
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') play(fn) })
+  }
+
+  document.querySelectorAll('[data-play]').forEach((b) => onPress(b, BOARD[b.dataset.play]))
+
+  const pick = (sel, cls) => (b) => {
+    document.querySelectorAll(sel).forEach((x) => x.classList.toggle(cls, x === b))
+  }
+  document.querySelectorAll('[data-menu]').forEach((b) =>
+    onPress(b, () => { pick('[data-menu]', 'sel')(b); S.select(); S.wipe(0.09) }),
+  )
+  document.querySelectorAll('[data-strip]').forEach((b) =>
+    onPress(b, () => { pick('[data-strip]', 'lit')(b); S.tick(0, 0.8); S.swipe(0.01) }),
+  )
+  document.querySelectorAll('[data-bub]').forEach((b) => onPress(b, () => { pick('[data-bub]', 'on')(b); S.pop() }))
+  onPress(document.getElementById('open-sheet'), () => { S.tick(0, 0.7); S.sheetOpen(0.02) })
+  onPress(document.getElementById('close-sheet'), () => { S.back(); S.sheetClose(0.04) })
+  onPress(document.getElementById('log-btn'), () => {
+    S.log()
+    const end = S.beads(5, 0.45)
+    S.rankup(0.45 + end + 0.9)
+  })
+  onPress(document.getElementById('remove-btn'), () => { S.tick(0, 0.6); S.remove(0.02) })
+  onPress(document.getElementById('undo-btn'), () => S.undo())
+  onPress(document.getElementById('error-btn'), () => S.error())
+
+  const sw = document.getElementById('sound-toggle')
+  sw.addEventListener('click', () => {
+    const next = sw.getAttribute('aria-checked') !== 'true'
+    // The switch itself clicks when turning on, and stays silent when turning off.
+    if (next) { enabled = true; play(() => S.toggle(true)) } else { play(() => S.toggle(false)); enabled = false }
+    sw.setAttribute('aria-checked', String(next))
+  })
+</script>
