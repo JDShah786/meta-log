@@ -1443,6 +1443,8 @@ describe('Settings: theme wipe (step 8)', () => {
   it("with Reduce Motion off, picking a theme plays a wipe in that theme's colours, and the app switches under it", async () => {
     reduceMotion = false
     const { user, sheet } = await openSettings()
+    // Let the menu's own wipe (into My habits) finish, so the only wipe left is the theme's.
+    await waitFor(() => expect(wipe()).toBeNull(), { timeout: 2000 })
     await user.click(within(sheet).getByRole('radio', { name: 'Royal' }))
     // The wipe wears the new theme from its first frame; the app switches while it's covered.
     expect(wipe()?.dataset.theme).toBe('royal')
