@@ -6,6 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Sfx } from '../sound/player'
+import { beadStep } from '../sound/sounds'
 import { openDb, type HabitDB } from '../storage/db'
 import { createStore, type Store } from '../storage/store'
 import { App } from './App'
@@ -19,7 +20,12 @@ let reduceMotion = true
 let played: string[] = []
 
 const sfx: Sfx = {
-  play: (name) => void played.push(name),
+  play: (name) => {
+    played.push(name)
+    // Stopping a sound (a moment tapped away) is written down too.
+    return () => void played.push(`stop:${name}`)
+  },
+  bead: (step) => void played.push(`bead:${step}`),
   setOn: (on) => void played.push(on ? 'ON' : 'OFF'),
   unlock() {},
 }
@@ -539,5 +545,144 @@ describe('sounds: Reduce Motion means no sounds (step 9a)', () => {
     const user = await start()
     const sheet = await openSettings(user)
     expect(within(sheet).queryByText('Off while Reduce Motion is on.')).toBeNull()
+  })
+})
+
+describe('sounds: LOG, the points chart and the moments (step 9b)', () => {
+  const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms))
+  // Points from an earlier day.
+  const seed = (stat: string, points: number) => db.awards.add({ habitId: 'boxing', date: '2026-10-26', stat: stat as never, points })
+  const chart = () => screen.findByRole('status', { name: 'Points earned' })
+  const chartGone = () => waitFor(() => expect(screen.queryByRole('status', { name: 'Points earned' })).toBeNull(), { timeout: 5000 })
+  const moment = (name: 'Rank up' | 'Graduated') => screen.findByRole('dialog', { name }, { timeout: 6000 })
+  const continueIn = (dialog: HTMLElement) => within(dialog).getByRole('button', { name: /continue/i }) as HTMLButtonElement
+  const ready = (dialog: HTMLElement) => waitFor(() => expect(continueIn(dialog).disabled).toBe(false), { timeout: 2000 })
+  const beads = () => played.filter((p) => p.startsWith('bead:')).map((p) => Number(p.slice(5)))
+  const log = async (user: User, habit: string, minutes: string) => {
+    await goTo(user, 'Today')
+    await user.click(await screen.findByRole('button', { name: new RegExp(`^${habit}`) }))
+    const sheet = await screen.findByRole('dialog', { name: habit })
+    await user.type(within(sheet).getByLabelText('Minutes'), minutes)
+    played = []
+    await user.click(within(sheet).getByRole('button', { name: 'Log' }))
+    return sheet
+  }
+
+  it("LOG plays log, then a bead sound as each bead lands; each stat's beads climb from the bottom", { timeout: 15_000 }, async () => {
+    await store.addToList('boxing', 'daily')
+    const user = await start()
+    await log(user, 'Boxing', '25') // Charm +2, Courage +3, in stat order
+    await chart()
+    await chartGone()
+    expect(played[0]).toBe('log')
+    expect(beads()).toEqual([beadStep(0, 2), beadStep(1, 2), beadStep(0, 3), beadStep(1, 3), beadStep(2, 3)])
+    // Closing on its own is silent.
+    expect(played).toEqual(['log', ...beads().map((b) => `bead:${b}`)])
+  })
+
+  it('a LOG that earns nothing plays log only', { timeout: 10_000 }, async () => {
+    await seed('charm', 1000)
+    await seed('courage', 1000)
+    await store.addToList('boxing', 'daily')
+    const user = await start()
+    await log(user, 'Boxing', '25')
+    await waitFor(() => expect(played).toContain('log'))
+    await sleep(400)
+    expect(played).toEqual(['log'])
+  })
+
+  it('skipping the points chart plays back, and no bead sounds after it', { timeout: 15_000 }, async () => {
+    await store.addToList('boxing', 'daily')
+    const user = await start()
+    await log(user, 'Boxing', '120') // 15 beads
+    const shown = await chart()
+    await waitFor(() => expect(beads().length).toBeGreaterThan(0), { timeout: 3000 })
+    await user.click(shown)
+    await chartGone()
+    await sleep(800)
+    const back = played.indexOf('back')
+    expect(back).toBeGreaterThan(0)
+    expect(played.slice(back + 1).some((p) => p.startsWith('bead:'))).toBe(false)
+    expect(beads().length).toBeLessThan(15)
+  })
+
+  it('a tap on the chart before it can be skipped is silent', { timeout: 15_000 }, async () => {
+    await store.addToList('boxing', 'daily')
+    const user = await start()
+    await log(user, 'Boxing', '25')
+    await user.click(await chart())
+    expect(played).not.toContain('back')
+    await chartGone()
+  })
+
+  it('each rank-up screen plays its own stinger after the beads; tapping it away (or Escape) fades it and plays back', { timeout: 20_000 }, async () => {
+    await seed('charm', 58)
+    await seed('courage', 58)
+    await store.addToList('boxing', 'daily')
+    const user = await start()
+    await log(user, 'Boxing', '25') // Charm 60 and Courage 61: two rank-ups
+    const first = await moment('Rank up')
+    await waitFor(() => expect(played).toContain('rankUp'))
+    expect(played.indexOf('rankUp')).toBeGreaterThan(played.map((p) => p.startsWith('bead:')).lastIndexOf(true))
+    // Too early to tap away: silent.
+    await user.click(first)
+    expect(played).not.toContain('back')
+    await ready(first)
+    played = []
+    await user.click(continueIn(first))
+    expect(played.slice(0, 2)).toEqual(['stop:rankUp', 'back'])
+    const second = await waitFor(
+      () => {
+        const d = screen.getByRole('dialog', { name: 'Rank up' })
+        expect(d).not.toBe(first)
+        return d
+      },
+      { timeout: 3000 },
+    )
+    await waitFor(() => expect(played).toContain('rankUp'))
+    await ready(second)
+    played = []
+    await user.keyboard('{Escape}')
+    expect(played.slice(0, 2)).toEqual(['stop:rankUp', 'back'])
+  })
+
+  it('graduation plays its stinger after the rank-up; tapping it away fades it and plays back', { timeout: 20_000 }, async () => {
+    await seed('charm', 1000)
+    await seed('courage', 1000)
+    await seed('intelligence', 1000)
+    await seed('proficiency', 999)
+    await store.addToList('calligraphy', 'daily')
+    const user = await start()
+    await log(user, 'Calligraphy', '10')
+    const up = await moment('Rank up')
+    await ready(up)
+    await user.click(continueIn(up))
+    const grad = await moment('Graduated')
+    await waitFor(() => expect(played).toContain('graduate'))
+    expect(played.indexOf('graduate')).toBeGreaterThan(played.indexOf('rankUp'))
+    await ready(grad)
+    played = []
+    await user.click(continueIn(grad))
+    expect(played.slice(0, 2)).toEqual(['stop:graduate', 'back'])
+  })
+
+  it('an edit that crosses a rank plays select, then the stinger; no LOG and no beads', { timeout: 15_000 }, async () => {
+    await seed('courage', 57)
+    await store.addToList('boxing', 'daily')
+    await store.logSession('boxing', 5) // Courage 59
+    const user = await start()
+    await goTo(user, 'Today')
+    await user.click(await screen.findByRole('button', { name: /^Boxing/ }))
+    const sheet = await screen.findByRole('dialog', { name: 'Boxing' })
+    const sessions = () => within(within(sheet).getByRole('list', { name: "Today's sessions" }))
+    await user.click(sessions().getByRole('button', { name: 'Edit' }))
+    const box = sessions().getByLabelText('Edit minutes')
+    await user.clear(box)
+    await user.type(box, '25') // Courage 60
+    played = []
+    await user.click(sessions().getByRole('button', { name: 'Save' }))
+    await moment('Rank up')
+    await waitFor(() => expect(played).toContain('rankUp'))
+    expect(played).toEqual(['select', 'rankUp'])
   })
 })

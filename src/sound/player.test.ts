@@ -5,16 +5,21 @@ import { createPlayer } from './player'
 
 class FakeParam {
   value = 0
-  setValueAtTime(v: number) {
+  // Every scheduled change: [what, value, time].
+  events: [string, number, number][] = []
+  setValueAtTime(v: number, t = 0) {
     this.value = v
+    this.events.push(['set', v, t])
     return this
   }
-  linearRampToValueAtTime(v: number) {
+  linearRampToValueAtTime(v: number, t = 0) {
     this.value = v
+    this.events.push(['linear', v, t])
     return this
   }
-  exponentialRampToValueAtTime(v: number) {
+  exponentialRampToValueAtTime(v: number, t = 0) {
     this.value = v
+    this.events.push(['exponential', v, t])
     return this
   }
   cancelScheduledValues() {
@@ -45,6 +50,7 @@ class FakeSource extends FakeNode {
   buffer: unknown = null
   type = 'sine'
   frequency = new FakeParam()
+  detune = new FakeParam()
   started: number[] = []
   start(at = 0) {
     this.started.push(at)
@@ -215,5 +221,74 @@ describe('sound player (step 9a)', () => {
     })
     expect(() => player.unlock()).not.toThrow()
     expect(() => player.play('tap')).not.toThrow()
+  })
+})
+
+describe('sound player: stingers, beads and stopping (step 9b)', () => {
+  const voices = (c: FakeContext, master: FakeNode) => c.nodes.filter((n) => n.kind === 'gain' && n.out.includes(master)) as (FakeNode & { gain: FakeParam })[]
+  const masterOf = (c: FakeContext) => {
+    const limiter = c.nodes.find((n) => n.kind === 'compressor')!
+    return c.nodes.find((n) => n.kind === 'gain' && n.out.includes(limiter))!
+  }
+
+  it('stingers ring in the hall echo; everyday sounds stay dry', () => {
+    const { player, ctx } = setup()
+    player.play('tap')
+    const c = ctx()
+    const hall = c.nodes.find((n) => n.kind === 'convolver')
+    const dry = c.sources()
+    expect(hall === undefined || dry.every((s) => !reaches(s, hall))).toBe(true)
+    player.play('rankUp')
+    const echo = c.nodes.find((n) => n.kind === 'convolver')!
+    expect(c.sources().filter((s) => !dry.includes(s)).some((s) => reaches(s, echo))).toBe(true)
+    // The echo goes through the master volume too.
+    expect(reaches(echo, masterOf(c))).toBe(true)
+  })
+
+  it('turning Sound off cuts a stinger, echo and all', () => {
+    const { player, ctx } = setup()
+    player.play('graduate')
+    const c = ctx()
+    const playing = [...c.sources(), ...c.nodes.filter((n) => n.kind === 'convolver')]
+    player.setOn(false)
+    for (const s of playing) expect(reaches(s, c.destination)).toBe(false)
+  })
+
+  it('play hands back a stop that fades just that sound out within ~0.1 s', () => {
+    const { player, ctx } = setup()
+    const stop = player.play('rankUp')
+    player.play('tap')
+    const c = ctx()
+    const [stinger, tap] = voices(c, masterOf(c))
+    stop()
+    const fade = stinger.gain.events.filter(([what]) => what !== 'set')
+    expect(fade.length).toBeGreaterThan(0)
+    const [, to, at] = fade.at(-1)!
+    expect(to).toBeLessThanOrEqual(0.001)
+    expect(at).toBeGreaterThan(c.currentTime)
+    expect(at).toBeLessThanOrEqual(c.currentTime + 0.12)
+    expect(tap.gain.events.filter(([what]) => what !== 'set')).toHaveLength(0)
+  })
+
+  it('stop is safe to call when nothing played (Sound off, or no Web Audio)', () => {
+    const { player } = setup()
+    player.setOn(false)
+    expect(() => player.play('rankUp')()).not.toThrow()
+    const broken = createPlayer({
+      makeContext: () => {
+        throw new Error('no Web Audio')
+      },
+    })
+    expect(() => broken.play('graduate')()).not.toThrow()
+  })
+
+  it('a bead plays its tick and note; nothing when off', () => {
+    const { player, ctx } = setup()
+    player.bead(3)
+    expect(ctx().sources().length).toBeGreaterThan(0)
+    const before = ctx().sources().length
+    player.setOn(false)
+    player.bead(4)
+    expect(ctx().sources()).toHaveLength(before)
   })
 })
