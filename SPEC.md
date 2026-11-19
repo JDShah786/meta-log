@@ -25,6 +25,7 @@ Every piece is free and runs on Windows. The rule behind each pick: popular, wel
 | Installable app | vite-plugin-pwa 2.0.0 (pinned, dev only) | Adds the manifest + service worker at build time | Makes it installable on iPhone and work offline. npm audit flags moderate/low issues in its build-time helpers (workbox); none of that code ships to the phone, so they stay |
 | Storage | IndexedDB via Dexie.js | Database inside the browser on the phone | Sturdier and bigger than localStorage; Dexie makes it easy to query |
 | Animation | Motion (Framer Motion) | Every animation that reacts to touch: taps, screen changes, sheets, the points chart, rank-ups and graduation | Simple API for Persona-style screen effects. A Lottie player may be added later for a few pre-drawn set pieces (not chosen yet) |
+| Sound | Web Audio (built into the browser) | Every sound, generated in code | No sound files and no library: free, tiny, works offline, and nothing is taken from a game |
 | Fonts | Montserrat via @fontsource/montserrat | Heavy italic headings, self-hosted | Free (OFL), works offline; body text uses the iPhone system font |
 | Tests | Vitest + React Testing Library + user-event + jsdom + fake-indexeddb | Runs our tests-first suite | Built for Vite; tests logic and screens; jsdom and fake-indexeddb (dev-only) run screen and storage tests in Node and CI |
 | Code home | GitHub | Stores code + history | Free, needed for hosting |
@@ -120,7 +121,7 @@ Two kinds of data: the **library** ships inside the app as a read-only file; **y
 | ActiveHabit | IndexedDB | habitId, addedOn, kind (daily or anytime) | Which habits are on your list, and how they show. Re-adding sets addedOn to the latest add. Removing only hides the habit; its history stays. Switching daily/anytime keeps addedOn. Undo after a remove puts the row back exactly. |
 | Session | IndexedDB | id (auto-numbered = logged order), habitId, date (YYYY-MM-DD, phone-local), minutes | Every time block you log — the raw truth |
 | Award | IndexedDB | habitId, date, stat, points | What each habit has paid each stat that day (rule 5 diffs against this) |
-| Setting | IndexedDB | key, value | Small app settings: when the last backup was made, and whether the install hint was dismissed |
+| Setting | IndexedDB | key, value | Small phone settings: when the last backup was made, whether the install hint was dismissed, the theme, and whether Sound is on. Not part of a backup. |
 
 Totals are not stored: a stat's total is the sum of its Award rows, and this morning's totals are the awards dated before today. Rank, title, Max and Graduated are calculated from totals.
 
@@ -177,7 +178,10 @@ The app opens on a command menu: the words TODAY / LIBRARY / STATS / MY HABITS a
   - **Timing:** about 2.4 s; can be tapped away after 1 s. It plays after any rank-ups from the same change.
   - The app then shows as Graduated. A single stat at 1000 gets the normal rank-up to Rank 5 and shows Max.
 - **Keyboard and screen readers:** rank-up and graduation are named dialogs. TAP TO CONTINUE is a real button, locked until the moment can be tapped away. Escape or a tap anywhere also closes them. The points chart is announced as "Points earned" with each stat's gain.
-- **Settings:** a bottom sheet opened from a SETTINGS button on My habits. It shows "Last backup: <date>" (or "No backup yet").
+- **Settings:** a bottom sheet opened from a SETTINGS button on My habits. It shows "Last backup: <date>" (or "No backup yet"), then Sound, Theme, Export and Import.
+  - **Sound:** an ON/OFF switch, on by default. Turning it on plays the switch; turning it off is silent and cuts off anything playing. With Reduce Motion on, nothing plays and the switch says "Off while Reduce Motion is on."
+  - **Theme:** five scene tiles (see Look and motion), the chosen one framed in white and lifted. Picking one plays a short wipe already in the new theme's colours; the app switches while the screen is covered and Settings stays open. A tap during the wipe is ignored. With Reduce Motion it switches at once.
+  - Sound and the theme are phone settings: read before the app first shows, so it never flashes the wrong colours, and never carried or changed by a backup.
   - **Export:** saves a JSON file, `meta-log-backup-YYYY-MM-DD.json`, holding every table plus the app name, a format version and the export time. It opens the iPhone share sheet, or downloads where there's none. Only a completed export counts as a backup.
   - **Import:** replaces all data, all or nothing.
     - The file is checked first against this spec's rules: format and version, sessions, awards, your list and custom habits. Any problem imports nothing and says why.
@@ -192,13 +196,24 @@ The app opens on a command menu: the words TODAY / LIBRARY / STATS / MY HABITS a
 
 ## Look and motion
 
-- **Mood:** original, inspired by Persona 3 Reload's "water and bubbles" feel, in green. No Persona/Atlus art, fonts or sounds.
-- **Palette (Neon Lime):** background #050807, depth #0D1F12, accent #39FF7A, highlight #C6FF3D, text #FFFFFF.
+- **Mood:** original, inspired by the Persona menus. No Persona/Atlus art, fonts or sounds: only the colour palettes follow the games; every shape, drawing and sound is original.
+- **Themes:** five, picked in Settings. Each sets its background, panels, main and highlight colours, muted text, error colour, two edge colours (the hard offset shadows) and four particle colours (bubbles, sparks, beads). Values are in `src/ui/themes.css`, from the approved mockups. Backgrounds are CSS only: no images, no filters.
+  - **Redux** (the default; original green, once "Neon Lime"): background #050807, depth #0D1F12, accent #39FF7A, highlight #C6FF3D, text #FFFFFF. Water and bubbles, after Persona 3 Reload's feel.
+  - **Royal** (red, after Persona 5 Royal): a red halftone slab with a zigzag edge, a black/white starburst panel, a zigzag band, sticker boxes, a black giant word.
+  - **Reload** (light; blue and white only, after Persona 3 Reload): sunlit water, a white light band and ring, waves, glassy bubbles, a navy giant word.
+  - **Revival** (light; gold, after Persona 4 Revival): a sun in a blue sky fading into gold, rays, a plum swoosh, confetti, bokeh, red sparkles. Its pills are orange.
+  - **Revamp** (violet, original): a starfield, a nebula, a ringed planet, moons in the other themes' colours.
+  - Light themes use navy (Reload) or plum (Revival) panels instead of black, and text on the background turns white (Reload) or plum (Revival).
 - **Shapes:** rounded pills, glossy bubbles, wave lines, a big tilted date block, tilted staggered panels, inverted lime highlights with hard offset shadows, and a faint giant background word that drifts slowly sideways.
 - **Type:** headings in Montserrat heavy italic; body in the iPhone system font.
 - **Tilt:** each item tilts on its own, never a whole list. All content fits at 360, 390 and 430 px widths.
 - **Motion:** taps, screen changes, sheets, the points chart and rank-ups all animate. Button taps pop glossy bubbles, drawn above every overlay.
-- **Reduce Motion:** respects the iPhone setting. Screens change at once, there are no bubbles, and the background word stays still. The points chart shows its final state, and rank-up and graduation fade in, with no beads, impact frames, sparks or shake.
+- **Sound:** one set for every theme, generated in code. Quiet, crisp, close-to-the-ear clicks, a touch left or right; no thunks or distortion.
+  - **Everyday:** tap, select ("ka-chick"), back ("chick-ka"), minute bubble ("tok"), the menu wipe (a rising ratchet), a swipe (a falling ratchet), sheets (a paper slide and a flap), remove and undo, a switch ("click-clack"), and an error ("tuk-tuk"). None while typing.
+  - **LOG:** "ka-chick-chick" and a soft chime, once the log is saved. Each bead lands with a tick and a glass note that climbs a pentatonic scale, from the bottom for each stat. Skipping the chart stops the rest.
+  - **Rank-up and graduation:** an achievement stinger (a wind-up, hits, a "da-da-da", a held swelling chord with claps and sparkles; the only sounds with a hall echo), timed so its hits land with the picture. Each screen plays its own; tapping it away fades it out.
+  - **Rules:** sounds play on release, and only for a real result: a tap the app ignores is silent, and a change storage refuses plays the error instead. Master volume 0.78 through a gentle limiter. Sounds follow the iPhone silent switch and never pause the user's music. Audio starts on the first tap.
+- **Reduce Motion:** respects the iPhone setting. Screens change at once, there are no bubbles, and the background word stays still. The points chart shows its final state, and rank-up and graduation fade in, with no beads, impact frames, sparks or shake. No sounds play.
 - **Smooth on phones:** no full-screen blur or SVG filters in animations, and the background loops pause while an overlay covers them.
 
 ## Workflow
@@ -217,6 +232,8 @@ Build order:
 5. Rank-up and graduation animations
 6. Settings export/import
 7. PWA install + offline
+8. Themes
+9. Sounds
 
 ## Out of scope for v1
 
