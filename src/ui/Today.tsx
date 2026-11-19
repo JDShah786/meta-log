@@ -206,7 +206,13 @@ function LogSheet({ habit, sessions, store, reduced, onEvents, onLogged, onChang
     if (!reduced) burst(tapPoint(e), 14, 90)
     const logged = Number(minutes)
     const before = await store.totals()
-    const events = await run(() => store.logSession(habit.id, logged), () => setMinutes(''))
+    const events = await run(
+      () => store.logSession(habit.id, logged),
+      () => {
+        play('log')
+        setMinutes('')
+      },
+    )
     if (!events) return
     onLogged({ caption: `${habit.name} · ${logged} min`, before, after: await store.totals(), events })
   }

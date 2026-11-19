@@ -2,13 +2,16 @@
 // (design/mockups/motion.html). Rank-up: about 1.8 s, tappable after 0.7 s. Graduation: about
 // 2.4 s, tappable after 1 s; GRADUATED! lands first with impact frames and a boom.
 // With Reduce Motion it only fades. Rendered into <body>, above the log sheet.
+// Each plays its achievement stinger (step 9), timed so its hit lands with the picture's.
 
 import { animate } from 'motion/react'
 import { useEffect, useEffectEvent, useId, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { STATS, titleOf } from '../engine/stats'
+import { hits } from '../sound/sounds'
 import type { Moment, RankUp } from './moments'
 import { BOUNCY, burst, centerOf, shockwave, SNAP, sparks } from './motionKit'
+import { useSound } from './sound'
 import { statName } from './todayView'
 
 interface Props {
@@ -20,6 +23,12 @@ interface Props {
 
 const EXIT_EASE = [0.6, 0, 1, 1] as const
 const READY_MS = { rankUp: 700, graduated: 1000 }
+// Rank-up: the new rank lands at 0.85 s; its stinger starts so its big hit lands then too.
+const RANK_LANDS_MS = 850
+const RANK_STINGER_MS = Math.round(RANK_LANDS_MS - hits('rankUp')[1] * 1000)
+// Graduation: its stinger starts with the screen; the boom lands with the stinger's first hit,
+// and GRADUATED! starts its slam 180 ms before that.
+const BOOM_MS = Math.round(hits('graduate')[0] * 1000)
 const wait = (ms: number) => new Promise((done) => setTimeout(done, ms))
 
 export function RankMoment({ moment, reduced, onDone }: Props) {
@@ -28,6 +37,12 @@ export function RankMoment({ moment, reduced, onDone }: Props) {
   const [ready, setReady] = useState(false)
   const leaving = useRef(false)
   const graduated = moment.type === 'graduated'
+  const sfx = useSound()
+  // Fades the stinger out (when tapped away).
+  const stopStinger = useRef(() => {})
+  const stinger = useEffectEvent(() => {
+    stopStinger.current = sfx.play(graduated ? 'graduate' : 'rankUp')
+  })
   // Bubbles rising behind the content: random once, then fixed. None with Reduce Motion.
   const [rising] = useState(() =>
     reduced
@@ -64,8 +79,13 @@ export function RankMoment({ moment, reduced, onDone }: Props) {
       el.querySelectorAll('.mo-stripes i').forEach((stripe, i) =>
         animate(stripe, { x: [i % 2 ? '140%' : '-140%', '0%'] }, { ...SNAP, delay: 0.05 + i * 0.07 }),
       )
-      if (graduated) playGraduation(el, one, later)
-      else playRankUp(one, later)
+      if (graduated) {
+        stinger()
+        playGraduation(el, one, later)
+      } else {
+        later(RANK_STINGER_MS, () => stinger())
+        playRankUp(one, later)
+      }
       void animate(one('.mo-tap'), { opacity: [0, 1] }, { duration: 0.3, delay: graduated ? 2.2 : 1.8 })
       later(READY_MS[moment.type], () => setReady(true))
     }
@@ -79,6 +99,8 @@ export function RankMoment({ moment, reduced, onDone }: Props) {
   const leave = async () => {
     if (!ready || leaving.current) return
     leaving.current = true
+    stopStinger.current()
+    sfx.play('back')
     const el = root.current!
     if (reduced) await animate(el, { opacity: 0 }, { duration: 0.2 })
     else {
@@ -156,7 +178,7 @@ function playRankUp(one: Pick, later: Later) {
   void animate(one('.mo-oldwrap'), { x: [-30, 0], opacity: [0, 1] }, { duration: 0.25, delay: 0.45 })
   void animate(one('.mo-arrow'), { x: [-20, 0], opacity: [0, 1] }, { duration: 0.25, delay: 0.6 })
   void animate(one('.mo-new'), { scale: [3.2, 1], rotate: [25, 0], opacity: [0, 1] }, { type: 'spring', stiffness: 380, damping: 16, delay: 0.75 })
-  later(850, () => {
+  later(RANK_LANDS_MS, () => {
     burst(centerOf(one('.mo-new')), 28, 180)
     void shake(one('.mo-shake'), false)
   })
@@ -183,9 +205,9 @@ async function impactFrames(el: HTMLElement, [x, y]: [number, number]) {
 function playGraduation(el: HTMLElement, one: Pick, later: Later) {
   const hero = one('.gr-hero')
   // 1. GRADUATED! slams down from 4x.
-  void animate(hero, { scale: [4, 1], rotate: [-25, 0], opacity: [0, 1] }, { type: 'spring', stiffness: 520, damping: 24, delay: 0.12 })
-  // 2. It lands: impact frames and the boom.
-  later(300, () => {
+  void animate(hero, { scale: [4, 1], rotate: [-25, 0], opacity: [0, 1] }, { type: 'spring', stiffness: 520, damping: 24, delay: (BOOM_MS - 180) / 1000 })
+  // 2. It lands: impact frames and the boom, with the stinger's first hit.
+  later(BOOM_MS, () => {
     const at = centerOf(hero)
     void impactFrames(el, at)
     shockwave(at)

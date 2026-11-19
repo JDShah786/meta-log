@@ -125,7 +125,7 @@ export function App({ store, now = () => new Date(), sfx = SILENT }: Props) {
   }
 
   return (
-    <SoundContext.Provider value={{ play: sound, soundOn, setSoundOn }}>
+    <SoundContext.Provider value={{ play: sound, bead: (step) => sfx.bead(step), soundOn, setSoundOn }}>
       <MotionConfig reducedMotion={reduced ? 'always' : 'never'}>
         <div className={reduced ? 'stage still' : 'stage'}>
           <Bubbles />

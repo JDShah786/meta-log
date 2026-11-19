@@ -9,7 +9,9 @@ import { memo, useEffect, useEffectEvent, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { rankOf, STATS, type Stat, type StatPoints } from '../engine/stats'
 import { burst, centerOf, SNAP } from './motionKit'
+import { beadStep } from '../sound/sounds'
 import { beadGap, beadValues, gains, level } from './pointsChart'
+import { useSound } from './sound'
 import { statName } from './todayView'
 
 interface Props {
@@ -46,6 +48,7 @@ export const PointsOverlay = memo(function PointsOverlay({ caption, before, afte
   const root = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
   const skippable = useRef(false)
+  const sfx = useSound()
   const earned = gains(before, after)
   // The first render shows where the stats start; with Reduce Motion, where they end.
   const shown = reduced ? after : before
@@ -58,8 +61,14 @@ export const PointsOverlay = memo(function PointsOverlay({ caption, before, afte
     onDone()
   }
   const skip = () => {
-    if (skippable.current) void close()
+    if (!skippable.current || closing.current) return
+    sfx.play('back')
+    void close()
   }
+  // A bead's sound as it lands; none once the chart is closing (e.g. skipped).
+  const beadSound = useEffectEvent((step: number) => {
+    if (!closing.current) sfx.bead(step)
+  })
 
   const onKey = useEffectEvent((e: KeyboardEvent) => {
     if (e.key === 'Escape') skip()
@@ -97,10 +106,15 @@ export const PointsOverlay = memo(function PointsOverlay({ caption, before, afte
       for (const [stat, total] of gains(before, after)) {
         const values = beadValues(total)
         let landed = 0
-        for (const value of values) {
-          flights.push(flyBead(stat, launch, () => land(stat, (landed += value))))
+        values.forEach((value, k) => {
+          flights.push(
+            flyBead(stat, launch, () => {
+              beadSound(beadStep(k, values.length))
+              land(stat, (landed += value))
+            }),
+          )
           launch += beadGap(values.length)
-        }
+        })
         launch += 140 // a beat between stats
       }
       await Promise.all(flights)
