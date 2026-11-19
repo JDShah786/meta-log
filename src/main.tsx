@@ -9,6 +9,7 @@ import { localDay } from './engine/scoring'
 import { openDb } from './storage/db'
 import { fitToScreen } from './pwa/fit'
 import { registerServiceWorker } from './pwa/register'
+import { createPlayer } from './sound/player'
 import { createStore } from './storage/store'
 import { App } from './ui/App'
 import './ui/app.css'
@@ -29,11 +30,20 @@ fitToScreen(window, document.documentElement)
 // this also helps in a browser tab.
 void navigator.storage?.persist?.()
 
+// Sounds (step 9), made in code with Web Audio. Phones allow audio only after a tap, so every tap
+// makes (or wakes) it. 'ambient' follows the silent switch and never pauses the user's music.
+const sfx = createPlayer({
+  makeContext: () => new AudioContext(),
+  session: (navigator as Navigator & { audioSession?: { type: string } }).audioSession,
+})
+// On a touch screen only the finger lifting counts as a gesture that may start audio.
+for (const event of ['pointerdown', 'pointerup', 'keydown']) addEventListener(event, () => sfx.unlock(), { capture: true })
+
 // Apply the saved theme (step 8) before the app shows, so it never flashes the wrong colours.
 void bootTheme(store).then(() =>
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App store={store} />
+      <App store={store} sfx={sfx} />
     </StrictMode>,
   ),
 )

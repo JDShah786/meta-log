@@ -8,6 +8,7 @@ import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from '
 import { GhostWord } from './Decor'
 import { burst, SECTIONS, tapPoint } from './motionKit'
 import { scrollPosition, settledSection } from './sectionsScroll'
+import { useSound } from './sound'
 
 const LAST = SECTIONS.length - 1
 
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function Sections({ index, reduced, onIndex, onMenu, renderSection }: Props) {
+  const { play } = useSound()
   const viewport = useRef<HTMLDivElement>(null)
   const strip = useRef<HTMLDivElement>(null)
   const cursor = useRef<HTMLSpanElement>(null)
@@ -115,7 +117,11 @@ export function Sections({ index, reduced, onIndex, onMenu, renderSection }: Pro
       if (settled === heading.current) heading.current = null
       return
     }
-    if (settled !== indexRef.current) onIndex(settled)
+    // A finger swipe has come to rest on another section.
+    if (settled !== indexRef.current) {
+      play('swipe')
+      onIndex(settled)
+    }
   }
 
   return (
@@ -134,7 +140,16 @@ export function Sections({ index, reduced, onIndex, onMenu, renderSection }: Pro
       <nav className="strip" aria-label="Sections" ref={strip}>
         <span className="cursor" ref={cursor} aria-hidden="true" />
         {SECTIONS.map((name, i) => (
-          <button key={name} aria-current={i === index ? 'page' : undefined} onClick={() => onIndex(i)}>
+          <button
+            key={name}
+            aria-current={i === index ? 'page' : undefined}
+            onClick={() => {
+              if (i === index) return
+              play('tap')
+              play('swipe')
+              onIndex(i)
+            }}
+          >
             {name}
           </button>
         ))}

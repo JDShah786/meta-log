@@ -10,6 +10,7 @@ import type { Store } from '../storage/store'
 import { burst, SNAP, SOFT, tapPoint } from './motionKit'
 import { usePrefersReducedMotion } from './reducedMotion'
 import { Sheet } from './Sheet'
+import { useSound } from './sound'
 import { minutesOn, useTodayData } from './todayData'
 import { statsByWeight } from './libraryView'
 import type { Logged } from './pointsChart'
@@ -37,6 +38,7 @@ export function Today({ store, dataVersion, onDataChange, onEvents, onLogged, on
   const reduced = usePrefersReducedMotion()
   const [data, reload] = useTodayData(store, dataVersion)
   const [openId, setOpenId] = useState<string | null>(null)
+  const { play } = useSound()
 
   if (!data) return <h1>Today</h1>
 
@@ -83,6 +85,8 @@ export function Today({ store, dataVersion, onDataChange, onEvents, onLogged, on
                       whileTap={{ scale: 0.96 }}
                       onClick={(e) => {
                         if (!reduced) burst(tapPoint(e), 8, 50)
+                        play('tap')
+                        play('sheetUp')
                         setOpenId(habitId)
                       }}
                     >
@@ -170,9 +174,10 @@ function LogSheet({ habit, sessions, store, reduced, onEvents, onLogged, onChang
   const [minutes, setMinutes] = useState('')
   const [editing, setEditing] = useState<{ id: number; minutes: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { play } = useSound()
 
-  // Runs a storage action; shows its reason if storage rejects it. Hands back its rank events
-  // (null if it was rejected).
+  // Runs a storage action; shows its reason (with the error sound) if storage rejects it. Hands
+  // back its rank events (null if it was rejected).
   const run = async (action: () => Promise<RankEvent[]>, onSuccess: () => void) => {
     setError(null)
     try {
@@ -181,13 +186,18 @@ function LogSheet({ habit, sessions, store, reduced, onEvents, onLogged, onChang
       await onChange()
       return events
     } catch (e) {
+      play('error')
       setError(e instanceof Error ? e.message : String(e))
       return null
     }
   }
-  // Edits and deletes: rank events only, no points chart.
-  const change = async (action: () => Promise<RankEvent[]>, onSuccess: () => void) => {
-    const events = await run(action, onSuccess)
+  // Edits and deletes: rank events only, no points chart. Their sound plays only if storage
+  // accepts the change.
+  const change = async (action: () => Promise<RankEvent[]>, onSuccess: () => void, sound: 'select' | 'remove') => {
+    const events = await run(action, () => {
+      play(sound)
+      onSuccess()
+    })
     if (events) onEvents(events)
   }
 
@@ -202,6 +212,7 @@ function LogSheet({ habit, sessions, store, reduced, onEvents, onLogged, onChang
   }
 
   const custom = () => {
+    play('tap')
     setMinutes('')
     box.current?.focus()
   }
@@ -245,7 +256,10 @@ function LogSheet({ habit, sessions, store, reduced, onEvents, onLogged, onChang
                 key={n}
                 className={minutes === String(n) ? 'on' : undefined}
                 whileTap={{ scale: 0.88 }}
-                onClick={() => setMinutes(String(n))}
+                onClick={() => {
+                  play('bubble')
+                  setMinutes(String(n))
+                }}
               >
                 {n}
               </motion.button>
@@ -281,17 +295,31 @@ function LogSheet({ habit, sessions, store, reduced, onEvents, onLogged, onChang
                       </label>
                       <button
                         disabled={!isValidMinutes(edit.minutes)}
-                        onClick={() => change(() => store.editSession(edit.id, Number(edit.minutes)), () => setEditing(null))}
+                        onClick={() => change(() => store.editSession(edit.id, Number(edit.minutes)), () => setEditing(null), 'select')}
                       >
                         Save
                       </button>
-                      <button onClick={() => setEditing(null)}>Cancel</button>
+                      <button
+                        onClick={() => {
+                          play('tap')
+                          setEditing(null)
+                        }}
+                      >
+                        Cancel
+                      </button>
                     </li>
                   ) : (
                     <li key={s.id}>
                       <span>{s.minutes} min</span>
-                      <button onClick={() => setEditing({ id: s.id!, minutes: String(s.minutes) })}>Edit</button>
-                      <button onClick={() => change(() => store.deleteSession(s.id!), () => {})}>Delete</button>
+                      <button
+                        onClick={() => {
+                          play('tap')
+                          setEditing({ id: s.id!, minutes: String(s.minutes) })
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button onClick={() => change(() => store.deleteSession(s.id!), () => {}, 'remove')}>Delete</button>
                     </li>
                   )
                 })}

@@ -7,6 +7,7 @@ import { useEffect, useState, type MouseEvent } from 'react'
 import { isIOS, isStandalone, shouldShowInstallHint } from '../pwa/installHint'
 import type { Store } from '../storage/store'
 import { GhostWord } from './Decor'
+import { useSound } from './sound'
 import { burst, SECTIONS, SNAP, SOFT, tapPoint } from './motionKit'
 import { minutesOn, useTodayData } from './todayData'
 import { listOrder } from './todayView'
@@ -66,6 +67,7 @@ export function Menu({ store, current, reduced, onChoose }: Props) {
 // On an iPhone or iPad, until installed or dismissed: how to add Meta Log to the Home Screen.
 function InstallHint({ store }: { store: Store }) {
   const [show, setShow] = useState(false)
+  const { play } = useSound()
 
   useEffect(() => {
     const ios = isIOS(navigator.userAgent, navigator.maxTouchPoints ?? 0)
@@ -95,6 +97,7 @@ function InstallHint({ store }: { store: Store }) {
         className="install-x"
         aria-label="Dismiss install hint"
         onClick={() => {
+          play('back')
           setShow(false)
           void store.dismissInstallHint()
         }}

@@ -1,6 +1,5 @@
-// Settings sheet (SPEC "Settings"): the theme (step 8), and exporting all data to a file and
-// importing it back. Opened from
-// SETTINGS on My habits. Import is all or nothing: the file is checked first, then a confirm
+// Settings sheet (SPEC "Settings"): Sound on/off (step 9), the theme (step 8), and exporting all
+// data to a file and importing it back. Opened from SETTINGS on My habits. Import is all or nothing: the file is checked first, then a confirm
 // step shows what's in it; REPLACE swaps everything in one transaction.
 
 import { motion } from 'motion/react'
@@ -9,6 +8,7 @@ import { createPortal } from 'react-dom'
 import { backupFileName, backupSummary, checkBackup, makeBackup, type Backup } from '../storage/backup'
 import type { Store } from '../storage/store'
 import { Sheet } from './Sheet'
+import { useSound } from './sound'
 import { applyTheme, THEMES, type ThemeId } from './themes'
 import { Wipe } from './Wipe'
 
@@ -57,6 +57,7 @@ async function handOver(file: File): Promise<boolean> {
 export function SettingsSheet({ store, now, reduced, onRestored, onClose }: Props) {
   const [last, setLast] = useState<string | null | undefined>(undefined)
   const [step, setStep] = useState<Step>({ kind: 'idle' })
+  const { play } = useSound()
 
   useEffect(() => {
     let showing = true
@@ -67,6 +68,7 @@ export function SettingsSheet({ store, now, reduced, onRestored, onClose }: Prop
   }, [store])
 
   const exportBackup = async () => {
+    play('tap')
     setStep({ kind: 'idle' })
     const at = now()
     const backup = makeBackup(await store.allData(), at.toISOString())
@@ -74,6 +76,7 @@ export function SettingsSheet({ store, now, reduced, onRestored, onClose }: Prop
     try {
       if (!(await handOver(file))) return
     } catch (e) {
+      play('error')
       setStep({ kind: 'error', message: `Export didn't finish: ${e instanceof Error ? e.message : String(e)}` })
       return
     }
@@ -86,6 +89,7 @@ export function SettingsSheet({ store, now, reduced, onRestored, onClose }: Prop
     e.target.value = '' // picking the same file again still works
     if (!file) return
     const result = checkBackup(await file.text())
+    if (!result.ok) play('error')
     setStep(result.ok ? { kind: 'confirm', backup: result.backup } : { kind: 'error', message: result.error })
   }
 
@@ -93,9 +97,11 @@ export function SettingsSheet({ store, now, reduced, onRestored, onClose }: Prop
     try {
       await store.replaceAll(backup.data)
     } catch (e) {
+      play('error')
       setStep({ kind: 'error', message: `Nothing was changed: ${e instanceof Error ? e.message : String(e)}` })
       return
     }
+    play('select')
     await store.setLastBackup(backup.exportedAt)
     setLast(backup.exportedAt)
     setStep({ kind: 'restored' })
@@ -107,6 +113,8 @@ export function SettingsSheet({ store, now, reduced, onRestored, onClose }: Prop
       {() => (
         <>
           <p className="muted backup-last">{last === undefined ? ' ' : last ? `Last backup: ${showDate(last)}` : 'No backup yet'}</p>
+
+          <SoundSwitch reduced={reduced} />
 
           <ThemePicker store={store} reduced={reduced} />
 
@@ -120,7 +128,14 @@ export function SettingsSheet({ store, now, reduced, onRestored, onClose }: Prop
           <div className="backup-action">
             <label className="primary file-pick">
               Import backup
-              <input type="file" accept=".json,application/json" className="sr-only" onChange={(e) => void pickFile(e)} />
+              <input
+                type="file"
+                accept=".json,application/json"
+                className="sr-only"
+                // On the input, not the label: a tap on the label reaches the input once.
+                onClick={() => play('tap')}
+                onChange={(e) => void pickFile(e)}
+              />
             </label>
             <p className="muted">Restores a backup file. It replaces all data on this phone.</p>
           </div>
@@ -150,6 +165,7 @@ export function SettingsSheet({ store, now, reduced, onRestored, onClose }: Prop
 function ThemePicker({ store, reduced }: { store: Store; reduced: boolean }) {
   const [current, setCurrent] = useState<ThemeId | null>(null)
   const [wiping, setWiping] = useState<ThemeId | null>(null)
+  const { play } = useSound()
 
   useEffect(() => {
     let showing = true
@@ -167,8 +183,10 @@ function ThemePicker({ store, reduced }: { store: Store; reduced: boolean }) {
 
   const pick = (theme: ThemeId) => {
     if (wiping || theme === current) return
-    if (reduced) commit(theme)
-    else setWiping(theme)
+    play('select')
+    if (reduced) return commit(theme)
+    play('wipe')
+    setWiping(theme)
   }
 
   return (
@@ -211,8 +229,35 @@ function ThemePicker({ store, reduced }: { store: Store; reduced: boolean }) {
   )
 }
 
+// Sound on/off (step 9). It saves even while Reduce Motion is on, but nothing plays then.
+function SoundSwitch({ reduced }: { reduced: boolean }) {
+  const { soundOn, setSoundOn } = useSound()
+  return (
+    <div className="sound-row">
+      <p className="sound-title" aria-hidden="true">
+        Sound
+      </p>
+      <button
+        role="switch"
+        aria-checked={soundOn === true}
+        aria-label="Sound"
+        className="sound-switch"
+        disabled={soundOn === null}
+        onClick={() => setSoundOn(!soundOn)}
+      >
+        <span className="sound-state" aria-hidden="true">
+          {soundOn ? 'On' : 'Off'}
+        </span>
+        <span className="sound-knob" aria-hidden="true" />
+      </button>
+      {reduced && <p className="muted sound-note">Off while Reduce Motion is on.</p>}
+    </div>
+  )
+}
+
 function Confirm({ backup, onReplace, onCancel }: { backup: Backup; onReplace: () => void; onCancel: () => void }) {
   const { exportedAt, onList, sessions } = backupSummary(backup)
+  const { play } = useSound()
   return (
     <div className="backup-confirm">
       <p className="backup-what">{`Backup from ${showDate(exportedAt)} · ${count(onList, 'habit')} on your list · ${count(sessions, 'session')}`}</p>
@@ -221,7 +266,13 @@ function Confirm({ backup, onReplace, onCancel }: { backup: Backup; onReplace: (
         <motion.button className="primary" whileTap={{ scale: 0.95 }} onClick={onReplace}>
           Replace
         </motion.button>
-        <button className="btn-quiet" onClick={onCancel}>
+        <button
+          className="btn-quiet"
+          onClick={() => {
+            play('tap')
+            onCancel()
+          }}
+        >
           Cancel
         </button>
       </div>

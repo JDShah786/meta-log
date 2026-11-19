@@ -4,6 +4,7 @@
 import { motion, useDragControls, type PanInfo } from 'motion/react'
 import { useId, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useSound } from './sound'
 
 // Pulling the sheet down this far, or flicking it this fast, closes it.
 const CLOSE_DISTANCE = 90
@@ -23,9 +24,15 @@ export function Sheet({ title, reduced, onClose, head, children }: Props) {
   const titleId = useId()
   const drag = useDragControls()
   const [closing, setClosing] = useState(false)
+  const { play } = useSound()
 
   // Slide away, then close (see onAnimationComplete). With Reduce Motion, close at once.
-  const close = () => (reduced ? onClose() : setClosing(true))
+  const close = () => {
+    if (closing) return
+    play('sheetDown')
+    if (reduced) onClose()
+    else setClosing(true)
+  }
 
   const onDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.y > CLOSE_DISTANCE || info.velocity.y > CLOSE_SPEED) close()
@@ -55,7 +62,15 @@ export function Sheet({ title, reduced, onClose, head, children }: Props) {
           <div className="handle" aria-hidden="true" />
           <header className="sheet-head">
             <h2 id={titleId}>{title}</h2>
-            <button className="close" aria-label="Close" onClick={() => close()}>
+            <button
+              className="close"
+              aria-label="Close"
+              onClick={() => {
+                if (closing) return
+                play('back')
+                close()
+              }}
+            >
               ✕
             </button>
           </header>

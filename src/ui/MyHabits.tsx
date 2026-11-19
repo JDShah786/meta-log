@@ -15,6 +15,7 @@ import { BOUNCY, burst, SNAP, tapPoint } from './motionKit'
 import { usePrefersReducedMotion } from './reducedMotion'
 import { SettingsSheet } from './Settings'
 import { Sheet } from './Sheet'
+import { useSound } from './sound'
 import { listOrder, statName } from './todayView'
 
 interface Props {
@@ -53,6 +54,7 @@ export function MyHabits({ store, active, dataVersion, onDataChange, onGoToLibra
   const [choosing, setChoosing] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [settings, setSettings] = useState(false)
+  const { play } = useSound()
 
   // Leaving My habits closes the toast and the choice (adjusting state during render).
   const [wasActive, setWasActive] = useState(active)
@@ -88,11 +90,14 @@ export function MyHabits({ store, active, dataVersion, onDataChange, onGoToLibra
   const offList = data.habits.filter((h) => isCustom(h.id) && !onList.has(h.id)).sort((a, b) => a.name.localeCompare(b.name))
 
   const switchKind = async ({ habitId, kind }: ActiveHabitRow) => {
+    play('switch')
     await store.setKind(habitId, other(kind))
     onDataChange()
   }
 
   const remove = async (habitId: string) => {
+    play('tap')
+    play('remove')
     const row = await store.removeFromList(habitId)
     if (row) setRemoved((r) => ({ id: (r?.id ?? 0) + 1, row }))
     onDataChange()
@@ -100,6 +105,7 @@ export function MyHabits({ store, active, dataVersion, onDataChange, onGoToLibra
 
   const undo = async () => {
     if (!removed) return
+    play('undo')
     setRemoved(null)
     await store.restoreToList(removed.row)
     onDataChange()
@@ -107,6 +113,7 @@ export function MyHabits({ store, active, dataVersion, onDataChange, onGoToLibra
 
   const addBack = async (habitId: string, kind: HabitKind, e: MouseEvent<HTMLButtonElement>) => {
     if (!reduced) burst(tapPoint(e), 14, 80)
+    play('select')
     await store.addToList(habitId, kind)
     setChoosing(null)
     onDataChange()
@@ -122,12 +129,28 @@ export function MyHabits({ store, active, dataVersion, onDataChange, onGoToLibra
       <h1>My habits</h1>
 
       <div className="mine-top">
-        <motion.button className="settings-btn" whileTap={{ scale: 0.92 }} onClick={() => setSettings(true)}>
+        <motion.button
+          className="settings-btn"
+          whileTap={{ scale: 0.92 }}
+          onClick={() => {
+            play('tap')
+            play('sheetUp')
+            setSettings(true)
+          }}
+        >
           Settings
         </motion.button>
       </div>
 
-      <motion.button className="new-habit" whileTap={{ scale: 0.95 }} onClick={() => setCreating(true)}>
+      <motion.button
+        className="new-habit"
+        whileTap={{ scale: 0.95 }}
+        onClick={() => {
+          play('tap')
+          play('sheetUp')
+          setCreating(true)
+        }}
+      >
         <span aria-hidden="true">+ </span>Add custom habit
       </motion.button>
 
@@ -212,6 +235,7 @@ export function MyHabits({ store, active, dataVersion, onDataChange, onGoToLibra
                     whileTap={{ scale: 0.85 }}
                     onClick={(e) => {
                       if (!reduced) burst(tapPoint(e), 8, 45)
+                      play('tap')
                       setChoosing(h.id)
                     }}
                   >
@@ -278,6 +302,7 @@ function NewHabitSheet({ taken, store, reduced, onSaved, onClose }: SheetProps) 
   const [weights, setWeights] = useState<Weights>({})
   const [kind, setKind] = useState<HabitKind>('daily')
   const [error, setError] = useState<string | null>(null)
+  const { play } = useSound()
 
   const picked = Object.keys(weights) as Stat[]
   const total = weightsTotal(weights)
@@ -286,12 +311,18 @@ function NewHabitSheet({ taken, store, reduced, onSaved, onClose }: SheetProps) 
 
   // A category picks its default stats; any stat change resets to an even split.
   const pickCategory = (c: Category) => {
+    play('tap')
     setCategory(c)
     setWeights(defaultWeights(categoryStats(c)))
   }
-  const toggleStat = (stat: Stat) =>
+  const toggleStat = (stat: Stat) => {
+    play('tap')
     setWeights(defaultWeights(picked.includes(stat) ? picked.filter((s) => s !== stat) : [...picked, stat]))
-  const step = (stat: Stat, by: number) => setWeights((w) => ({ ...w, [stat]: w[stat]! + by }))
+  }
+  const step = (stat: Stat, by: number) => {
+    play('tap')
+    setWeights((w) => ({ ...w, [stat]: w[stat]! + by }))
+  }
 
   const save = async (close: () => void) => {
     setError(null)
@@ -299,8 +330,10 @@ function NewHabitSheet({ taken, store, reduced, onSaved, onClose }: SheetProps) 
       const id = await store.saveCustomHabit({ name, category: category!, weights })
       await store.addToList(id, kind)
       onSaved()
+      play('select')
       close()
     } catch (e) {
+      play('error')
       setError(e instanceof Error ? e.message : String(e))
     }
   }
@@ -358,7 +391,15 @@ function NewHabitSheet({ taken, store, reduced, onSaved, onClose }: SheetProps) 
             <legend>Show as</legend>
             <div className="chips">
               {(['daily', 'anytime'] as const).map((k) => (
-                <button key={k} className="chip" aria-pressed={k === kind} onClick={() => setKind(k)}>
+                <button
+                  key={k}
+                  className="chip"
+                  aria-pressed={k === kind}
+                  onClick={() => {
+                    play('tap')
+                    setKind(k)
+                  }}
+                >
                   {KIND_LABELS[k]}
                 </button>
               ))}

@@ -1969,6 +1969,64 @@ input:focus {
   text-transform: uppercase;
 }
 
+/* Sound on/off (step 9): a pill switch, lit like the primary buttons when on. */
+.sound-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.sound-title {
+  margin: 0;
+  font: 900 italic 15px var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--g);
+}
+
+.sound-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 78px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.18);
+  font: 900 italic 13px var(--display);
+  text-transform: uppercase;
+  transition: background 140ms ease-out;
+}
+.sound-switch[aria-checked='true'] {
+  justify-content: flex-start;
+  background: linear-gradient(100deg, var(--g), var(--lime));
+  color: var(--black);
+  box-shadow: 3px 3px 0 var(--black), 5px 5px 0 var(--edge);
+}
+
+.sound-knob {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 2px 2px 0 #000;
+  transition: translate 160ms ease-out;
+}
+.sound-switch[aria-checked='true'] .sound-knob {
+  translate: 44px 0;
+}
+
+.sound-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+}
+
 .backup-action {
   display: grid;
   gap: 6px;

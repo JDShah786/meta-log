@@ -39,6 +39,9 @@ export interface Store {
   // The chosen theme (step 8): a phone preference, so it isn't part of a backup.
   theme(): Promise<ThemeId>
   setTheme(theme: ThemeId): Promise<void>
+  // Sound on/off (step 9): on unless turned off. A phone preference, so it isn't part of a backup.
+  soundOn(): Promise<boolean>
+  setSoundOn(on: boolean): Promise<void>
 }
 
 export const MAX_NAME = 40
@@ -198,6 +201,12 @@ export function createStore(db: HabitDB, today: () => string): Store {
     setTheme: async (theme) => {
       if (!isThemeId(theme)) throw new Error(`Unknown theme: ${String(theme)}`)
       await db.settings.put({ key: 'theme', value: theme })
+    },
+
+    soundOn: async () => (await db.settings.get('sound'))?.value !== 'off',
+
+    setSoundOn: async (on) => {
+      await db.settings.put({ key: 'sound', value: on ? 'on' : 'off' })
     },
   }
 }

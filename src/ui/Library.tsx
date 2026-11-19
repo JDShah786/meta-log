@@ -9,6 +9,7 @@ import type { Store } from '../storage/store'
 import { CATEGORY_LABELS, filterLibrary, KIND_LABELS, statsByWeight } from './libraryView'
 import { BOUNCY, burst, SNAP, tapPoint } from './motionKit'
 import { usePrefersReducedMotion } from './reducedMotion'
+import { useSound } from './sound'
 import { statName } from './todayView'
 
 interface Props {
@@ -29,6 +30,7 @@ export function Library({ store, active, category, onCategory, dataVersion, onDa
   const [query, setQuery] = useState('')
   // The row showing the DAILY / ANYTIME choice. One at a time.
   const [choosing, setChoosing] = useState<string | null>(null)
+  const { play } = useSound()
 
   // Leaving the Library closes the choice (adjusting state during render, not in an effect).
   const [wasActive, setWasActive] = useState(active)
@@ -52,6 +54,7 @@ export function Library({ store, active, category, onCategory, dataVersion, onDa
 
   const add = async (habitId: string, kind: HabitKind, e: MouseEvent<HTMLButtonElement>) => {
     if (!reduced) burst(tapPoint(e), 14, 80)
+    play('select')
     await store.addToList(habitId, kind)
     setChoosing(null)
     onDataChange()
@@ -85,6 +88,7 @@ export function Library({ store, active, category, onCategory, dataVersion, onDa
             aria-pressed={!searching && c === category}
             whileTap={{ scale: 0.9 }}
             onClick={() => {
+              play('tap')
               onCategory(c)
               setQuery('')
               setChoosing(null)
@@ -138,6 +142,7 @@ export function Library({ store, active, category, onCategory, dataVersion, onDa
                   whileTap={{ scale: 0.85 }}
                   onClick={(e) => {
                     if (!reduced) burst(tapPoint(e), 8, 45)
+                    play('tap')
                     setChoosing(h.id)
                   }}
                 >

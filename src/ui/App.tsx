@@ -2,9 +2,11 @@
 // rank-up and graduation moments. Opens on the menu.
 
 import { MotionConfig } from 'motion/react'
-import { useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import type { RankEvent } from '../engine/stats'
 import type { Category } from '../library/library'
+import type { Sfx } from '../sound/player'
+import type { SoundName } from '../sound/sounds'
 import type { Store } from '../storage/store'
 import { Bubbles, DateBlock } from './Decor'
 import { Library } from './Library'
@@ -16,6 +18,7 @@ import { gains, type Logged } from './pointsChart'
 import { RankMoment } from './RankMoment'
 import { usePrefersReducedMotion } from './reducedMotion'
 import { Sections } from './Sections'
+import { SILENT, SoundContext } from './sound'
 import { Stats } from './Stats'
 import { Today } from './Today'
 import { Wipe } from './Wipe'
@@ -24,6 +27,8 @@ interface Props {
   store: Store
   // The clock for the date block; tests pass a fixed time.
   now?: () => Date
+  // The sound player (step 9); tests pass a fake. Silent if not given.
+  sfx?: Sfx
 }
 
 interface Wiping {
@@ -32,8 +37,39 @@ interface Wiping {
   swap: () => void
 }
 
-export function App({ store, now = () => new Date() }: Props) {
+export function App({ store, now = () => new Date(), sfx = SILENT }: Props) {
   const reduced = usePrefersReducedMotion()
+
+  // Sound (step 9): the player is on only when Sound is on and Reduce Motion is off. The player
+  // is told only when that changes.
+  const [soundOn, setSoundOnState] = useState<boolean | null>(null)
+  const playerOn = useRef<boolean | null>(null)
+  const switchPlayer = useCallback(
+    (on: boolean) => {
+      if (playerOn.current === on) return
+      playerOn.current = on
+      sfx.setOn(on)
+    },
+    [sfx],
+  )
+  useEffect(() => {
+    let showing = true
+    void store.soundOn().then((on) => showing && setSoundOnState(on))
+    return () => {
+      showing = false
+    }
+  }, [store])
+  useEffect(() => {
+    if (soundOn !== null) switchPlayer(soundOn && !reduced)
+  }, [soundOn, reduced, switchPlayer])
+  // The Settings switch: turning Sound on plays the switch, so you hear it working.
+  const setSoundOn = (on: boolean) => {
+    setSoundOnState(on)
+    void store.setSoundOn(on)
+    switchPlayer(on && !reduced)
+    if (on && !reduced) sfx.play('switch')
+  }
+  const sound = (name: SoundName) => sfx.play(name)
   const [view, setView] = useState<'menu' | 'sections'>('menu')
   const [index, setIndex] = useState(0) // current section, or the last one when on the menu
   const [wipe, setWipe] = useState<Wiping | null>(null)
@@ -71,82 +107,93 @@ export function App({ store, now = () => new Date() }: Props) {
   }
   const choose = (i: number) => {
     if (busy.current) return
+    sound('select')
+    sound('wipe')
     setIndex(i)
     change(() => setView('sections'), 1)
   }
   const toMenu = () => {
     if (busy.current) return
+    sound('back')
+    sound('wipe')
     change(() => setView('menu'), -1)
+  }
+  const goToLibrary = () => {
+    sound('tap')
+    sound('swipe')
+    setIndex(1)
   }
 
   return (
-    <MotionConfig reducedMotion={reduced ? 'always' : 'never'}>
-      <div className={reduced ? 'stage still' : 'stage'}>
-        <Bubbles />
-        <DateBlock now={now} />
-        {view === 'menu' ? (
-          <Menu store={store} current={index} reduced={reduced} onChoose={choose} />
-        ) : (
-          <Sections
-            index={index}
-            reduced={reduced}
-            onIndex={setIndex}
-            onMenu={toMenu}
-            renderSection={(i) => {
-              if (i === 0) return <Today store={store} dataVersion={dataVersion} onDataChange={dataChanged} onEvents={announce} onLogged={logged} onGoToLibrary={() => setIndex(1)} />
-              if (i === 1)
+    <SoundContext.Provider value={{ play: sound, soundOn, setSoundOn }}>
+      <MotionConfig reducedMotion={reduced ? 'always' : 'never'}>
+        <div className={reduced ? 'stage still' : 'stage'}>
+          <Bubbles />
+          <DateBlock now={now} />
+          {view === 'menu' ? (
+            <Menu store={store} current={index} reduced={reduced} onChoose={choose} />
+          ) : (
+            <Sections
+              index={index}
+              reduced={reduced}
+              onIndex={setIndex}
+              onMenu={toMenu}
+              renderSection={(i) => {
+                if (i === 0) return <Today store={store} dataVersion={dataVersion} onDataChange={dataChanged} onEvents={announce} onLogged={logged} onGoToLibrary={goToLibrary} />
+                if (i === 1)
+                  return (
+                    <Library
+                      store={store}
+                      active={index === 1}
+                      category={category}
+                      onCategory={setCategory}
+                      dataVersion={dataVersion}
+                      onDataChange={dataChanged}
+                    />
+                  )
+                if (i === 2) return <Stats store={store} active={index === 2} dataVersion={dataVersion} />
                 return (
-                  <Library
+                  <MyHabits
                     store={store}
-                    active={index === 1}
-                    category={category}
-                    onCategory={setCategory}
+                    active={index === 3}
                     dataVersion={dataVersion}
                     onDataChange={dataChanged}
+                    onGoToLibrary={goToLibrary}
+                    now={now}
                   />
                 )
-              if (i === 2) return <Stats store={store} active={index === 2} dataVersion={dataVersion} />
-              return (
-                <MyHabits
-                  store={store}
-                  active={index === 3}
-                  dataVersion={dataVersion}
-                  onDataChange={dataChanged}
-                  onGoToLibrary={() => setIndex(1)}
-                  now={now}
-                />
-              )
-            }}
-          />
-        )}
-        {chart && (
-          <PointsOverlay
-            key={chart.id}
-            caption={chart.caption}
-            before={chart.before}
-            after={chart.after}
-            reduced={reduced}
-            onDone={() => {
-              setChart(null)
-              play(chart.events)
-            }}
-          />
-        )}
-        {queue[0] && (
-          <RankMoment key={queue[0].id} moment={queue[0].moment} reduced={reduced} onDone={() => setQueue((q) => q.slice(1))} />
-        )}
-        {wipe && (
-          <Wipe
-            key={wipe.id}
-            direction={wipe.direction}
-            onCovered={() => {
-              wipe.swap()
-              busy.current = false
-            }}
-            onDone={() => setWipe((w) => (w?.id === wipe.id ? null : w))}
-          />
-        )}
-      </div>
-    </MotionConfig>
+              }}
+            />
+          )}
+          {chart && (
+            <PointsOverlay
+              key={chart.id}
+              caption={chart.caption}
+              before={chart.before}
+              after={chart.after}
+              reduced={reduced}
+              onDone={() => {
+                setChart(null)
+                play(chart.events)
+              }}
+            />
+          )}
+          {queue[0] && (
+            <RankMoment key={queue[0].id} moment={queue[0].moment} reduced={reduced} onDone={() => setQueue((q) => q.slice(1))} />
+          )}
+          {wipe && (
+            <Wipe
+              key={wipe.id}
+              direction={wipe.direction}
+              onCovered={() => {
+                wipe.swap()
+                busy.current = false
+              }}
+              onDone={() => setWipe((w) => (w?.id === wipe.id ? null : w))}
+            />
+          )}
+        </div>
+      </MotionConfig>
+    </SoundContext.Provider>
   )
 }
