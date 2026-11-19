@@ -401,3 +401,24 @@ describe('theme (step 8)', () => {
     expect(await store.theme()).toBe('revival')
   })
 })
+
+describe('sound on/off (step 9)', () => {
+  it('is on when nothing is saved', async () => {
+    expect(await store.soundOn()).toBe(true)
+  })
+
+  it('saves off, and it stays off after the app reopens; on again works too', async () => {
+    await store.setSoundOn(false)
+    expect(await store.soundOn()).toBe(false)
+    expect(await createStore(db, () => TODAY).soundOn()).toBe(false)
+    await store.setSoundOn(true)
+    expect(await store.soundOn()).toBe(true)
+  })
+
+  it('is not part of a backup: importing keeps the phone setting', async () => {
+    await store.setSoundOn(false)
+    expect(JSON.stringify(await store.allData())).not.toMatch(/sound/i)
+    await store.replaceAll({ customHabits: [], activeHabits: [], sessions: [], awards: [] })
+    expect(await store.soundOn()).toBe(false)
+  })
+})
