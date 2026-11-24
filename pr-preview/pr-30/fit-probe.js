@@ -14,6 +14,18 @@
     return d
   }
   function start() {
+    // v2: does the html background colour the band? Does in-flow content in a 100lvh page reach it?
+    var html = document.documentElement
+    html.style.setProperty('background', 'magenta', 'important')
+    html.style.setProperty('height', '100lvh', 'important')
+    document.body.style.setProperty('height', '100lvh', 'important')
+    document.body.style.setProperty('position', 'relative', 'important')
+    var bar = document.createElement('div')
+    bar.style.cssText =
+      'position:absolute;left:0;right:0;bottom:0;height:24px;z-index:99999;pointer-events:none;background:lime;' +
+      'color:#000;font:bold 14px/24px ui-monospace,Menlo,monospace;text-align:center'
+    bar.textContent = 'LIME = absolute, bottom of 100lvh body'
+    document.body.appendChild(bar)
     marker('bottom:0', 'red')
     marker('top:calc(100lvh - 6px)', 'cyan')
     var stageMark = marker('top:0', 'yellow')
@@ -47,7 +59,9 @@
         '--fit-gap: "' + document.documentElement.style.getPropertyValue('--fit-gap') + '"',
         'stage: ' + (sr ? 'top ' + Math.round(sr.top) + ' bottom ' + Math.round(sr.bottom) + ' h ' + Math.round(sr.height) : 'none'),
         'dpr ' + devicePixelRatio,
+        'html h ' + Math.round(html.getBoundingClientRect().height) + '  body h ' + Math.round(document.body.getBoundingClientRect().height),
         'markers: red=fixed bottom:0  cyan=100lvh  yellow=stage bottom',
+        'v2: magenta band = page colours it; lime bar = lvh fix works',
       ].join('\n')
     }
     update()
