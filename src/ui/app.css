@@ -45,6 +45,18 @@ body {
   overflow: hidden;
 }
 
+/* iOS 26 bug: with the see-through status bar, the installed app gets a window shorter than the
+   screen by the status bar's height and draws nothing below it (a dark band over the home bar).
+   A page that is 100lvh tall makes iOS hand over the whole screen. lvh is each phone's own full
+   height, so no sizes live here. Installed app only: in a Safari tab the toolbars come and go,
+   and a full-height page could hide content behind them. */
+@media (display-mode: standalone) {
+  html,
+  body {
+    height: 100lvh;
+  }
+}
+
 button,
 input {
   font: inherit;
@@ -87,9 +99,6 @@ button:disabled {
 .stage {
   position: fixed;
   inset: 0;
-  /* --fit-gap: how much shorter than the screen the installed iPhone app's window is reported
-     (src/pwa/fit.ts). Full-screen layers stretch down by it to reach the real bottom; 0 elsewhere. */
-  bottom: calc(-1 * var(--fit-gap, 0px));
   max-width: 480px;
   margin-inline: auto;
   /* clip, not hidden: a hidden box can still be scrolled sideways by focus or scrollIntoView,
@@ -901,7 +910,7 @@ section + section h2 {
   position: fixed;
   left: 16px;
   right: 16px;
-  bottom: calc(20px + var(--safe-bottom) - var(--fit-gap, 0px));
+  bottom: calc(20px + var(--safe-bottom));
   z-index: 15;
   max-width: 448px;
   margin: 0 auto;
@@ -1138,7 +1147,6 @@ legend,
 .sheet-backdrop {
   position: fixed;
   inset: 0;
-  bottom: calc(-1 * var(--fit-gap, 0px));
   z-index: 20;
   background: rgb(0 0 0 / 0.62);
   animation: fade-in 160ms ease-out;
@@ -1154,11 +1162,11 @@ legend,
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(-1 * var(--fit-gap, 0px));
+  bottom: 0;
   z-index: 21;
   width: 100%;
   max-width: 480px;
-  max-height: calc(100dvh + var(--fit-gap, 0px) - 24px - var(--safe-top));
+  max-height: calc(100dvh - 24px - var(--safe-top));
   overflow-y: auto;
   margin: 0 auto;
   padding: 6px 20px calc(24px + var(--safe-bottom));
@@ -1395,7 +1403,6 @@ input:focus {
 .moment {
   position: fixed;
   inset: 0;
-  bottom: calc(-1 * var(--fit-gap, 0px));
   z-index: 50;
   max-width: 480px;
   margin: 0 auto;
@@ -1783,7 +1790,6 @@ input:focus {
 .pc {
   position: fixed;
   inset: 0;
-  bottom: calc(-1 * var(--fit-gap, 0px));
   z-index: 45;
   max-width: 480px;
   margin: 0 auto;
