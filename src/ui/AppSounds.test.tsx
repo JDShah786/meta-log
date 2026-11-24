@@ -203,6 +203,14 @@ describe('sounds: sheets (step 9a)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull(), { timeout: 2000 })
   })
 
+  it('the Settings cog on the menu plays tap, then the sheet sliding up', async () => {
+    const user = await start({ motion: true })
+    played = []
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(played).toEqual(['tap', 'sheetUp'])
+    expect(await screen.findByRole('dialog', { name: 'Settings' })).toBeTruthy()
+  })
+
   it('SETTINGS and + ADD CUSTOM HABIT play tap, then the sheet sliding up', async () => {
     const user = await start({ motion: true })
     await goTo(user, 'My habits')
