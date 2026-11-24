@@ -7,6 +7,7 @@ import { useEffect, useState, type MouseEvent } from 'react'
 import { isIOS, isStandalone, shouldShowInstallHint } from '../pwa/installHint'
 import type { Store } from '../storage/store'
 import { GhostWord } from './Decor'
+import { SettingsSheet } from './Settings'
 import { useSound } from './sound'
 import { burst, SECTIONS, SNAP, SOFT, tapPoint } from './motionKit'
 import { minutesOn, useTodayData } from './todayData'
@@ -16,10 +17,17 @@ interface Props {
   store: Store
   current: number
   reduced: boolean
+  // A wipe is covering the menu: the cog ignores taps (like a second menu tap mid-wipe).
+  covered: boolean
+  now: () => Date
+  dataVersion: number
+  onDataChange: () => void
   onChoose: (index: number) => void
 }
 
-export function Menu({ store, current, reduced, onChoose }: Props) {
+export function Menu({ store, current, reduced, covered, now, dataVersion, onDataChange, onChoose }: Props) {
+  const [settings, setSettings] = useState(false)
+  const { play } = useSound()
   const choose = (index: number, e: MouseEvent<HTMLButtonElement>) => {
     if (!reduced) burst(tapPoint(e), 12, 90)
     onChoose(index)
@@ -57,10 +65,47 @@ export function Menu({ store, current, reduced, onChoose }: Props) {
         whileTap={{ scale: 0.96 }}
         onClick={(e) => choose(0, e)}
       >
-        <TodayCard store={store} />
+        <TodayCard store={store} dataVersion={dataVersion} />
+      </motion.button>
+      {/* Settings cog: bottom right, where a right thumb rests. Same sheet as My habits' SETTINGS. */}
+      <motion.button
+        className="menu-cog"
+        aria-label="Settings"
+        aria-hidden={covered || undefined}
+        tabIndex={covered ? -1 : undefined}
+        initial={{ scale: 0, rotate: -90 }}
+        animate={{ scale: 1, rotate: 0 }}
+        transition={{ ...SNAP, delay: 0.15 }}
+        whileTap={{ scale: 0.88, rotate: 45 }}
+        onClick={(e) => {
+          if (covered) return
+          if (!reduced) burst(tapPoint(e), 8, 60)
+          play('tap')
+          play('sheetUp')
+          setSettings(true)
+        }}
+      >
+        <CogIcon />
       </motion.button>
       <InstallHint store={store} />
+      {settings && (
+        <SettingsSheet store={store} now={now} reduced={reduced} onRestored={onDataChange} onClose={() => setSettings(false)} />
+      )}
     </div>
+  )
+}
+
+// An original cog: eight square teeth round a ring, drawn in the theme's colours by CSS.
+function CogIcon() {
+  const teeth = Array.from({ length: 8 }, (_, i) => i * 45)
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      {teeth.map((deg) => (
+        <rect key={deg} x="19.5" y="3" width="9" height="11" rx="2" transform={`rotate(${deg} 24 24)`} />
+      ))}
+      <circle cx="24" cy="24" r="14" />
+      <circle className="menu-cog-hole" cx="24" cy="24" r="5.5" />
+    </svg>
   )
 }
 
@@ -110,8 +155,8 @@ function InstallHint({ store }: { store: Store }) {
 
 const CARD_ROWS = 3
 
-function TodayCard({ store }: { store: Store }) {
-  const [data] = useTodayData(store)
+function TodayCard({ store, dataVersion }: { store: Store; dataVersion: number }) {
+  const [data] = useTodayData(store, dataVersion)
   const title = <span className="card-title">Today's list</span>
   if (!data) return title
 

@@ -297,6 +297,32 @@ body:has(.pc, .moment) .marquee {
   box-shadow: 8px 8px 0 var(--black), 10px 10px 0 var(--edge);
 }
 
+/* Settings cog on the menu: bottom right, in reach of a right thumb, clear of the home bar */
+
+.menu-cog {
+  position: absolute;
+  right: 24px;
+  bottom: calc(40px + var(--safe-bottom));
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--black);
+  border: 2px solid var(--g);
+  box-shadow: 5px 5px 0 var(--edge2);
+}
+
+.menu-cog svg {
+  width: 36px;
+  height: 36px;
+  fill: var(--g);
+}
+
+.menu-cog .menu-cog-hole {
+  fill: var(--black);
+}
+
 /* Today's list card on the menu */
 
 .card {
