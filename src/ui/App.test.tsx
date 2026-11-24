@@ -1051,6 +1051,39 @@ describe('Settings: backup', () => {
     expect(within(sheet).queryByRole('button', { name: 'Replace' })).toBeNull()
     expect(await store.activeHabits()).toEqual([expect.objectContaining({ habitId: 'boxing' })])
   })
+
+  // The Settings cog on the menu (2026-11-24): same sheet, opened over the menu.
+  const openFromMenu = async () => {
+    const user = renderOnMenu()
+    await menu()
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    return { user, sheet: await screen.findByRole('dialog', { name: 'Settings' }) }
+  }
+
+  it('the Settings cog on the menu opens the same sheet over the menu; closing it leaves you on the menu', async () => {
+    const { user, sheet } = await openFromMenu()
+    expect(within(sheet).getByRole('button', { name: 'Export backup' })).toBeTruthy()
+    expect(within(sheet).getByLabelText('Import backup')).toBeTruthy()
+    expect(within(sheet).getByRole('radiogroup', { name: 'Theme' })).toBeTruthy()
+    // Still on the menu underneath: no section opened.
+    expect(screen.getByRole('navigation', { name: 'Menu' })).toBeTruthy()
+    expect(screen.queryByRole('navigation', { name: 'Sections' })).toBeNull()
+    await user.click(within(sheet).getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull())
+    expect(screen.getByRole('navigation', { name: 'Menu' })).toBeTruthy()
+  })
+
+  it("importing a backup from the menu cog refreshes the menu's Today's list card", async () => {
+    await store.addToList('boxing', 'daily')
+    const { user, sheet } = await openFromMenu()
+    await importFile(user, sheet, file(backup()))
+    await user.click(await within(sheet).findByRole('button', { name: 'Replace' }))
+    expect(await within(sheet).findByText('Backup restored.')).toBeTruthy()
+    await waitFor(async () =>
+      expect((await screen.findByRole('button', { name: /today's list/i })).textContent).toMatch(/Chess.*Juggling/),
+    )
+    expect((await screen.findByRole('button', { name: /today's list/i })).textContent).not.toMatch(/Boxing/)
+  })
 })
 
 describe('points chart', () => {

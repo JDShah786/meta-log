@@ -20,6 +20,13 @@ Build order from SPEC.md. Tick a step when it's built, reviewed by Hamid, and re
   - Theme mockups (approved): https://claude.ai/artifact/89caJnTvpr8UKeLLtuHnLF
   - Sound prototype (approved): https://claude.ai/artifact/19aKvvYNJTc7LmBpftMhgh
   - Still to decide in step 8 planning: themed backgrounds for the points chart and rank-up overlays, and whether backgrounds move.
+- To-do list (Hamid, 2026-11-24), one PR each, grill first:
+  - Stats: a toggle between the cards and a graph view (the cross + diamond radar of the four stats, like the points chart). Next up.
+  - Stats screen restyle (overlaps the toggle).
+  - Themed backgrounds for the points chart and the rank-up/graduation overlays (same in every theme today).
+  - LazyMotion to cut ~50 KB. Grow habits.json (102 presets). Optional Copy/Paste backup. Revisit the LOG sound's punch.
+  - "iOS Switch emulator" (a free GitHub fork): a note only; waiting for the link. Not part of Meta Log.
+- Test backups for rank-ups and graduation (custom "Test Charm/Courage/Intelligence/Proficiency/All" habits, stats one point under each rank, or all at 999) were sent to Hamid on 2026-11-24; import them on a PR preview.
 
 ## Decisions log
 
@@ -153,4 +160,6 @@ Only decisions Hamid approved go here. Once its step is reviewed, Hamid gives a 
 | 2026-11-18 | 9 | Sounds play on release (click), not finger-down. | Lists scroll and sections swipe; finger-down would click on every scroll that starts on a row. | → in SPEC |
 | 2026-11-18 | 9 | Which control plays which sound: menu word, Today's list card and theme tile = select + wipe; MENU = back + wipe; strip name = tap + swipe; a finger swipe = swipe once the section settles; habit row, SETTINGS, + ADD CUSTOM HABIT = tap + sheet up; sheet ✕ = back + sheet down; tap outside / drag down = sheet down; minute bubbles = bubble; CUSTOM, chips, +, −/+, edit, Export, Import, Cancel = tap; DAILY/ANYTIME when adding, Save, REPLACE = select; the DAILY/ANYTIME tag and the Sound switch = switch; remove = tap + remove; UNDO = undo; deleting a session = remove; LOG = log, then a tick and glass note per bead; a refusal message (log refused, save failed, bad backup file) = error; each rank-up or graduation screen = its stinger; tapping away the points chart or a moment = back. | Hamid approved the mapping table. | → in SPEC |
 | 2026-11-18 | 9 | Several rank-ups from one change: each screen plays its own stinger. | Each rank-up gets its moment. | → in SPEC |
-| 2026-11-24 | fix | The installed app fills the screen on every phone: in the installed app only (display-mode: standalone), html and body are 100lvh tall. src/pwa/fit.ts and --fit-gap are removed with their tests. A Safari tab is unchanged. | Measured on an iPhone 16 Pro, iOS 26.6.2 (throwaway PR #30): iOS gave the installed app a window of 812 (screen 874 minus the 62 status bar) and drew nothing below it, so the old stretch never showed. A 100lvh page makes iOS hand over the whole 874. lvh is each phone's own height, so no sizes are hard-coded. | Detail only, not SPEC |
+| 2026-11-24 | fix | The installed app fills the screen on every phone (PR #31): in the installed app only (display-mode: standalone), html and body are 100lvh tall. src/pwa/fit.ts and --fit-gap are removed with their tests. A Safari tab is unchanged. | Measured on an iPhone 16 Pro, iOS 26.6.2 (throwaway PR #30): iOS gave the installed app a window of 812 (screen 874 minus the 62 status bar) and drew nothing below it, so the old stretch never showed. A 100lvh page makes iOS hand over the whole 874. lvh is each phone's own height, so no sizes are hard-coded. | Detail only, not SPEC |
+| 2026-11-24 | cog | The menu gets a Settings cog: an original eight-tooth cog in a round button, in the theme's colours with the hard offset shadow, at the bottom right (24 px in, above the home bar), where a right thumb rests, beside the Today's list card. It opens the same Settings sheet over the menu (tap + sheet up); an import refreshes the menu card. The SETTINGS pill on My habits stays. | Hamid: Settings one tap from the home screen, in thumb reach. | Not yet |
+| 2026-11-24 | cog | While a wipe covers the menu, the cog ignores taps and is hidden from screen readers. | Same rule as a second menu tap mid-wipe. | Detail only, not SPEC |
